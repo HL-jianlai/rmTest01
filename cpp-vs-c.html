@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="用通俗的中文讲清楚 C 和 C++ 的区别：历史、编程范式、核心特性对比、内存管理、标准库、编译与兼容性、适用场景。">
+<title>C++ 与 C 的区别 · 入门对比指南</title>
+<style>
+/* ============================================================
+   1. 全局变量与基础样式
+   ============================================================ */
+:root{
+  /* 配色：蓝色 / 深色主色调 */
+  --bg:            #eef2f8;
+  --bg-soft:       #f7f9fc;
+  --surface:       #ffffff;
+  --text:          #16202e;
+  --text-strong:   #0b1526;
+  --muted:         #5b6b80;
+  --primary:       #2563eb;
+  --primary-dark:  #0b1a33;
+  --primary-soft:  #dee9ff;
+  --accent:        #06b6d4;
+  --border:        #dce4ef;
+  --border-strong: #c6d3e4;
+
+  /* 代码配色（类 GitHub Dark） */
+  --code-bg:       #0d1117;
+  --code-border:   #20293a;
+  --code-text:     #c9d1d9;
+  --tok-kw:        #ff7b72;   /* 关键字 */
+  --tok-type:      #7ee787;   /* 类型 */
+  --tok-str:       #a5d6ff;   /* 字符串 */
+  --tok-num:       #f0883e;   /* 数字 */
+  --tok-com:       #8b949e;   /* 注释 */
+  --tok-fn:        #d2a8ff;   /* 函数名 */
+  --tok-pre:       #ffa657;   /* 预处理指令 */
+  --tok-ns:        #79c0ff;   /* 命名空间 */
+
+  /* 杂项 */
+  --radius:        14px;
+  --radius-sm:     10px;
+  --shadow:        0 1px 2px rgba(16,32,60,.05), 0 10px 26px rgba(16,32,60,.08);
+  --shadow-sm:     0 1px 2px rgba(16,32,60,.06), 0 4px 12px rgba(16,32,60,.06);
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
+  --sans: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", system-ui, -apple-system, sans-serif;
+  --nav-w: 258px;
+  --gap: 28px;
+}
+
+*, *::before, *::after{ box-sizing: border-box; }
+
+html{
+  scroll-behavior: smooth;           /* 平滑滚动（JS 也做了兼容处理） */
+  -webkit-text-size-adjust: 100%;
+}
+
+body{
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--text);
+  background: var(--bg);
+  background-image:
+    radial-gradient(1100px 460px at 12% -8%, rgba(37,99,235,.13), transparent 60%),
+    radial-gradient(900px 420px at 92% 4%, rgba(6,182,212,.12), transparent 62%);
+  background-repeat: no-repeat;
+}
+
+a{ color: var(--primary); }
+img{ max-width: 100%; }
+
+/* 键盘可达性：跳到正文 */
+.skip-link{
+  position: absolute; left: -9999px; top: 0; z-index: 999;
+  background: var(--primary-dark); color:#fff; padding: 10px 16px;
+  border-radius: 0 0 8px 0; text-decoration: none;
+}
+.skip-link:focus{ left: 0; }
+
+/* ============================================================
+   2. 顶部标题区
+   ============================================================ */
+.hero{
+  position: relative;
+  overflow: hidden;
+  color: #eaf1ff;
+  background:
+    radial-gradient(900px 380px at 88% 0%, rgba(6,182,212,.35), transparent 60%),
+    radial-gradient(700px 340px at 8% 100%, rgba(37,99,235,.45), transparent 62%),
+    linear-gradient(140deg, #0b1a33 0%, #10233f 48%, #0a1626 100%);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.hero::after{
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: linear-gradient(180deg, rgba(0,0,0,.55), transparent 78%);
+  pointer-events: none;
+}
+.hero-inner{
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 54px 24px 46px;
+}
+.eyebrow{
+  display: inline-block;
+  margin: 0 0 14px;
+  padding: 5px 12px;
+  font-size: .76rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #9fd4ff;
+  background: rgba(56,189,248,.12);
+  border: 1px solid rgba(56,189,248,.32);
+  border-radius: 999px;
+}
+.hero h1{
+  margin: 0 0 14px;
+  font-size: clamp(1.85rem, 5.2vw, 3rem);
+  line-height: 1.2;
+  letter-spacing: -.01em;
+  color: #ffffff;
+  font-weight: 800;
+}
+.hero h1 .plus{
+  background: linear-gradient(120deg, #60a5fa, #22d3ee);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero .subtitle{
+  margin: 0;
+  max-width: 62ch;
+  font-size: clamp(.95rem, 2.2vw, 1.08rem);
+  color: #b9cbe4;
+  line-height: 1.85;
+}
+.hero-tags{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 22px;
+}
+.hero-tags span{
+  font-size: .8rem;
+  padding: 5px 11px;
+  border-radius: 999px;
+  color: #cfe1ff;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.14);
+}
+
+/* ============================================================
+   3. 布局：桌面端左侧固定目录 + 右侧正文
+   ============================================================ */
+.layout{
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--gap) 24px 64px;
+  display: grid;
+  grid-template-columns: var(--nav-w) minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+
+/* 目录 */
+.sidebar{
+  position: sticky;
+  top: 22px;
+  align-self: start;
+}
+.toc{
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px 14px;
+}
+.toc-title{
+  margin: 0 0 10px;
+  padding: 0 6px;
+  font-size: .74rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.toc ul{
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.toc a{
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid transparent;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: .92rem;
+  transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+.toc a .idx{
+  flex: none;
+  width: 20px;
+  font-size: .74rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--border-strong);
+  transition: color .18s ease;
+}
+.toc a:hover{
+  background: var(--bg-soft);
+  color: var(--primary);
+}
+.toc a.active{
+  background: var(--primary-soft);
+  border-left-color: var(--primary);
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+.toc a.active .idx{ color: var(--primary); }
+
+/* 正文容器 */
+main{ min-width: 0; }
+
+section{
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 26px 26px 24px;
+  margin-bottom: 22px;
+  scroll-margin-top: 22px;
+}
+section > *:last-child{ margin-bottom: 0; }
+
+h2{
+  position: relative;
+  margin: 0 0 16px;
+  padding-left: 16px;
+  font-size: clamp(1.22rem, 3vw, 1.5rem);
+  line-height: 1.4;
+  color: var(--text-strong);
+  letter-spacing: -.005em;
+}
+h2::before{                        /* 左侧强调条 */
+  content: "";
+  position: absolute;
+  left: 0;
+  top: .16em;
+  bottom: .16em;
+  width: 5px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, var(--primary), var(--accent));
+}
+h3{
+  margin: 26px 0 10px;
+  font-size: 1.04rem;
+  color: var(--text-strong);
+}
+h3::before{
+  content: "▍";
+  margin-right: 6px;
+  color: var(--accent);
+  font-size: .9em;
+}
+p{ margin: 0 0 14px; }
+ul, ol{ margin: 0 0 14px; padding-left: 1.35em; }
+li{ margin: 5px 0; }
+li::marker{ color: var(--primary); }
+
+code{
+  font-family: var(--mono);
+  font-size: .88em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--primary-soft);
+  color: #123a82;
+  border: 1px solid #c9dbff;
+  word-break: break-word;
+}
+kbd{
+  font-family: var(--mono);
+  font-size: .8em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  color: var(--text);
+}
+strong{ color: var(--text-strong); }
+
+/* ============================================================
+   4. 卡片 / 提示框
+   ============================================================ */
+.callout{
+  margin: 18px 0;
+  padding: 14px 16px 14px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  background: var(--bg-soft);
+  font-size: .95rem;
+}
+.callout p:last-child{ margin-bottom: 0; }
+.callout .callout-title{
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 700;
+  color: var(--primary-dark);
+}
+.callout.tip{ border-left-color: #16a34a; background: #f2fbf4; }
+.callout.tip .callout-title{ color: #14632f; }
+.callout.warn{ border-left-color: #f59e0b; background: #fffaf0; }
+.callout.warn .callout-title{ color: #92500a; }
+.callout.quote{ border-left-color: var(--accent); background: #f2fbfd; }
+.callout.quote .callout-title{ color: #0e5f70; }
+
+/* 双列对比卡片 */
+.compare{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 18px 0;
+}
+.card{
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  background: var(--bg-soft);
+}
+.card h4{
+  margin: 0 0 10px;
+  font-size: .98rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-strong);
+}
+.card h4 .badge{
+  font-family: var(--mono);
+  font-size: .72rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--primary-dark);
+  color: #cfe4ff;
+  letter-spacing: .04em;
+}
+.card.cpp h4 .badge{ background: linear-gradient(120deg, #1d4ed8, #0891b2); color: #fff; }
+.card ul{ margin-bottom: 0; }
+
+/* ============================================================
+   5. 表格：斑马纹 + 悬停
+   ============================================================ */
+.table-wrap{
+  margin: 18px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--surface);
+}
+table{
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: .93rem;
+}
+caption{
+  caption-side: top;
+  padding: 12px 14px 10px;
+  text-align: left;
+  font-size: .85rem;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+thead th{
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  padding: 12px 14px;
+  font-size: .86rem;
+  letter-spacing: .04em;
+  color: #eaf2ff;
+  background: linear-gradient(135deg, #12294a, #1b3f74 55%, #14506b);
+  border-bottom: 1px solid #0d2340;
+  white-space: nowrap;
+}
+tbody td{
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+tbody tr:nth-child(even){ background: var(--bg-soft); }   /* 斑马纹 */
+tbody tr:hover{ background: var(--primary-soft); }        /* 悬停高亮 */
+tbody tr:last-child td{ border-bottom: none; }
+tbody td:first-child{
+  font-weight: 600;
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+td .yes{ color: #15803d; font-weight: 600; }
+td .no{ color: #b91c1c; font-weight: 600; }
+
+/* ============================================================
+   6. 代码块（深色背景 + 语法高亮感）
+   ============================================================ */
+pre{
+  position: relative;
+  margin: 16px 0;
+  padding: 34px 18px 16px;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  font-family: var(--mono);
+  font-size: .84rem;
+  line-height: 1.72;
+  color: var(--code-text);
+  tab-size: 4;
+}
+pre::before{                       /* 语言标签 */
+  content: attr(data-lang);
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 3px 12px;
+  font-size: .68rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #8ea3bd;
+  background: #161d29;
+  border-right: 1px solid var(--code-border);
+  border-bottom: 1px solid var(--code-border);
+  border-radius: 11px 0 10px 0;
+}
+pre::after{                        /* 顶部小圆点装饰 */
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: 12px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #30363d;
+  box-shadow: -13px 0 0 #30363d, -26px 0 0 #30363d;
+}
+pre code{
+  display: block;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: inherit;
+  white-space: pre;
+  word-break: normal;
+}
+/* 高亮 token */
+.k{ color: var(--tok-kw); }        /* keyword */
+.t{ color: var(--tok-type); }      /* type */
+.s{ color: var(--tok-str); }       /* string */
+.n{ color: var(--tok-num); }       /* number */
+.c{ color: var(--tok-com); font-style: italic; }  /* comment */
+.f{ color: var(--tok-fn); }        /* function */
+.p{ color: var(--tok-pre); }       /* preprocessor */
+.ns{ color: var(--tok-ns); }       /* namespace */
+
+/* 编译命令条 */
+.cmd{
+  margin: -6px 0 18px;
+  padding: 9px 13px;
+  font-family: var(--mono);
+  font-size: .8rem;
+  color: #c7d6ea;
+  background: #16202f;
+  border: 1px solid #24334a;
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.cmd::before{
+  content: "$ ";
+  color: #4ade80;
+}
+
+/* ============================================================
+   7. 页脚 & 返回顶部
+   ============================================================ */
+footer{
+  color: #9fb3cc;
+  background: linear-gradient(140deg, #0b1a33, #0a1626);
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+.footer-inner{
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 30px 24px 34px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: .86rem;
+}
+.footer-inner strong{ color: #dbe8ff; }
+.footer-links{ display: flex; flex-wrap: wrap; gap: 14px; }
+.footer-links a{
+  color: #9fd4ff;
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(159,212,255,.4);
+}
+.footer-links a:hover{ color: #fff; border-bottom-color: #fff; }
+
+#toTop{
+  position: fixed;
+  right: 20px;
+  bottom: 22px;
+  z-index: 80;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  font-size: 1.05rem;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), #0891b2);
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 10px 24px rgba(20,60,140,.34);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(12px);
+  transition: opacity .25s ease, transform .25s ease, visibility .25s;
+}
+#toTop.show{ opacity: 1; visibility: visible; transform: translateY(0); }
+#toTop:hover{ filter: brightness(1.08); }
+#toTop:focus-visible{ outline: 3px solid #93c5fd; outline-offset: 2px; }
+
+/* ============================================================
+   8. 响应式
+   ============================================================ */
+@media (max-width: 980px){
+  .layout{
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+    padding: 16px 16px 56px;
+  }
+  /* 目录变成顶部横向滚动条 */
+  .sidebar{
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    margin: -16px -16px 0;
+    padding: 8px 12px;
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .toc{
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+  .toc-title{ display: none; }
+  .toc ul{
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+  .toc a{
+    white-space: nowrap;
+    border-left: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 13px;
+    font-size: .86rem;
+    background: var(--surface);
+  }
+  .toc a .idx{ display: none; }
+  .toc a.active{
+    border-color: var(--primary);
+    background: var(--primary-soft);
+  }
+  section{
+    padding: 20px 17px 18px;
+    scroll-margin-top: 66px;
+  }
+  .compare{ grid-template-columns: minmax(0, 1fr); }
+  pre{ font-size: .79rem; padding: 32px 14px 14px; }
+}
+
+@media (max-width: 520px){
+  .hero-inner{ padding: 40px 18px 34px; }
+  body{ font-size: 15.5px; }
+  .toc a{ padding: 6px 11px; font-size: .82rem; }
+  #toTop{ right: 14px; bottom: 16px; width: 42px; height: 42px; }
+  tbody td, thead th{ padding: 10px 11px; }
+}
+
+/* 尊重系统的“减少动效”设置 */
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior: auto; }
+  *{ transition: none !important; }
+}
+
+/* 打印时的小优化 */
+@media print{
+  .sidebar, #toTop, .hero-tags{ display: none; }
+  body{ background: #fff; }
+  section{ box-shadow: none; break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<a class="skip-link" href="#main">跳到正文内容</a>
+
+<!-- ============ 顶部标题区 ============ -->
+<header class="hero">
+  <div class="hero-inner">
+    <p class="eyebrow">C / C++ 入门对比指南</p>
+    <h1>C<span class="plus">++</span> 与 C 的区别</h1>
+    <p class="subtitle">
+      它们流着同一支血脉，却走向了两种思路：C 是一门贴近硬件、讲究“自己动手”的过程式语言；
+      C++ 在 C 的性能地基上，长出了类、模板、异常与 STL 这些抽象工具。
+      本文用大白话把它们从头到尾比一遍。
+    </p>
+    <div class="hero-tags">
+      <span>面向过程 vs 多范式</span>
+      <span>malloc/free vs new/delete</span>
+      <span>结构体 vs 类</span>
+      <span>宏 vs 模板</span>
+      <span>STL 与 RAII</span>
+      <span>C++ 不是 C 的超集</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ============ 目录导航 ============ -->
+  <aside class="sidebar">
+    <nav class="toc" aria-label="页面目录">
+      <p class="toc-title">目录</p>
+      <ul>
+        <li><a href="#history"><span class="idx">01</span>历史渊源</a></li>
+        <li><a href="#paradigm"><span class="idx">02</span>编程范式</a></li>
+        <li><a href="#features"><span class="idx">03</span>核心特性对比</a></li>
+        <li><a href="#memory"><span class="idx">04</span>内存管理</a></li>
+        <li><a href="#stdlib"><span class="idx">05</span>标准库</a></li>
+        <li><a href="#compat"><span class="idx">06</span>编译与兼容性</a></li>
+        <li><a href="#scenarios"><span class="idx">07</span>适用场景</a></li>
+        <li><a href="#summary"><span class="idx">08</span>总结与学习建议</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <!-- ============ 正文 ============ -->
+  <main id="main">
+
+    <!-- ---------- 01 历史渊源 ---------- -->
+    <section id="history">
+      <h2>01 · 历史渊源：一个是“祖师爷”，一个是“加强版”</h2>
+
+      <p>
+        <strong>C 语言</strong>诞生于 1972 年的贝尔实验室，由 Dennis Ritchie 设计，
+        最初的目的是<strong>重写 Unix 操作系统</strong>。它需要一门“比汇编好写、又几乎和汇编一样快”的语言，
+        于是 C 具备了这些特征：贴近硬件、没有运行时包袱、可移植。
+        1978 年《The C Programming Language》（K&amp;R 版）出版，1989/1990 年出了第一个 ISO 标准（C89/C90），
+        之后是 C99、C11、C17、C23。
+      </p>
+
+      <p>
+        <strong>C++</strong> 则出现在 1979 年，作者是同样在贝尔实验室的 Bjarne Stroustrup。
+        他要做分布式系统仿真，用 C 写觉得“抽象能力不够”，用 Simula（早期面向对象语言）写又太慢。
+        于是他动手给 C 加上了类，项目最初就叫 <em>“C with Classes”</em>，
+        1983 年正式改名为 <strong>C++</strong>——名字里的 <code>++</code> 正是 C 的自增运算符，
+        寓意“C 的下一代、再进一步”。1998 年 C++ 有了第一个 ISO 标准（C++98），
+        2011 年的 C++11 被称为“现代 C++”的起点，之后是 C++14/17/20/23。
+      </p>
+
+      <div class="callout quote">
+        <span class="callout-title">一句话记住关系</span>
+        <p>
+          C++ 是在 C 的基础上“长大”的：语法、指针、数组、编译模型都继承自 C，
+          但在此之上加了一整套抽象机制。两者是<strong>同一个家族的两条分支</strong>，
+          不是“新旧版本”的替代关系——今天 C 依然活跃在操作系统内核和嵌入式领域。
+        </p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <caption>发展时间线速览</caption>
+          <thead>
+            <tr><th>时间</th><th>C 语言</th><th>C++</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>诞生</td><td>1972 年，贝尔实验室，为写 Unix</td><td>1979 年起步（C with Classes），1983 年定名 C++</td></tr>
+            <tr><td>设计初衷</td><td>替代汇编，贴近硬件、高效可移植</td><td>兼顾 C 的运行效率与高级语言的抽象能力</td></tr>
+            <tr><td>标准化</td><td>C89 → C99 → C11 → C17 → C23</td><td>C++98 → C++11 → C++14/17/20/23</td></tr>
+            <tr><td>主要作者</td><td>Dennis Ritchie</td><td>Bjarne Stroustrup</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ---------- 02 编程范式 ---------- -->
+    <section id="paradigm">
+      <h2>02 · 编程范式：C 是“一条路”，C++ 是“多条路”</h2>
+
+      <p>
+        “编程范式”说白了就是<strong>你组织代码的思路</strong>：把数据放哪、把逻辑放哪、怎么复用。
+        这是两者最本质的差别。
+      </p>
+
+      <div class="compare">
+        <div class="card c">
+          <h4><span class="badge">C</span> 面向过程（Procedure-Oriented）</h4>
+          <ul>
+            <li>程序 = 一堆<strong>函数</strong>按顺序调用</li>
+            <li>数据（结构体、变量）和操作数据的函数是<strong>分开</strong>的</li>
+            <li>代码复用主要靠<strong>函数</strong>和<strong>宏</strong></li>
+            <li>没有“类”“继承”“多态”“模板”这些概念</li>
+            <li>写起来直接、直白，你完全知道机器在干什么</li>
+          </ul>
+        </div>
+        <div class="card cpp">
+          <h4><span class="badge">C++</span> 多范式（Multi-Paradigm）</h4>
+          <ul>
+            <li><strong>面向过程</strong>：你完全可以像写 C 一样写 C++</li>
+            <li><strong>面向对象</strong>：类、封装、继承、多态</li>
+            <li><strong>泛型编程</strong>：模板、STL 容器与算法</li>
+            <li><strong>函数式风格</strong>：lambda、<code>&lt;algorithm&gt;</code> 里的算法组合</li>
+            <li>你可以按问题挑选合适的风格，而不是被一种风格绑死</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>面向对象的三大特性，简单说就是</h3>
+      <ul>
+        <li><strong>封装</strong>：把数据和操作它的函数打包进 <code>class</code>，用 <code>private</code> 挡住外部乱改。</li>
+        <li><strong>继承</strong>：<code>class Dog : public Animal</code>，复用父类的共性，扩展自己的个性。</li>
+        <li><strong>多态</strong>：同一个 <code>speak()</code> 调用，狗叫“汪”、猫叫“喵”。C 里想做到这点，通常得靠函数指针表，写起来啰嗦又容易错。</li>
+      </ul>
+
+      <h3>泛型：写一次，适配多种类型</h3>
+      <div class="code-block">
+<pre data-lang="C / C++ 对比"><code><span class="c">/* C：用宏“假装”泛型——只是文本替换，没有类型检查 */</span>
+<span class="p">#define</span> <span class="f">MAX</span>(a, b) ((a) &gt; (b) ? (a) : (b))
+
+<span class="t">int</span> m = <span class="f">MAX</span>(<span class="n">3</span>, <span class="n">5</span>);          <span class="c">/* 能用，但如果传进来指针/表达式，很容易踩坑 */</span>
+
+
+<span class="c">// C++：真正的模板，编译期按类型生成代码，类型安全</span>
+<span class="k">template</span> &lt;<span class="k">typename</span> T&gt;
+T <span class="f">max_of</span>(T a, T b) { <span class="k">return</span> a &gt; b ? a : b; }
+
+<span class="t">int</span>    x = <span class="f">max_of</span>(<span class="n">3</span>, <span class="n">5</span>);        <span class="c">// T 推导为 int</span>
+<span class="t">double</span> y = <span class="f">max_of</span>(<span class="n">1.5</span>, <span class="n">2.5</span>);    <span class="c">// T 推导为 double</span>
+std::string z = <span class="f">max_of</span>(std::string(<span class="s">"a"</span>), std::string(<span class="s">"b"</span>));</code></pre>
+      </div>
+
+      <div class="callout">
+        <span class="callout-title">初学者常问：C++ 写的代码是不是就一定“面向对象”？</span>
+        <p>
+          不是。C++ 允许你写纯过程式代码，也允许写纯泛型代码。
+          面向对象只是它提供的一种<strong>可选工具</strong>，用不用取决于问题本身。
+        </p>
+      </div>
+    </section>
+
+    <!-- ---------- 03 核心特性对比 ---------- -->
+    <section id="features">
+      <h2>03 · 核心特性对比：一张表看清差异</h2>
+
+      <p>
+        下面这张表是全文的重点，建议先通读一遍，后面几节会把表中的每一行展开讲。
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <caption>表 1：C 与 C++ 核心差异总览</caption>
+          <thead>
+            <tr>
+              <th>对比项</th>
+              <th>C</th>
+              <th>C++</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>语言类型</td>
+              <td>面向过程的通用编程语言，更接近硬件，属于“中级语言”</td>
+              <td>多范式语言：过程 + 面向对象 + 泛型 + 函数式，抽象层次更高</td>
+            </tr>
+            <tr>
+              <td>编程范式</td>
+              <td>函数 + 结构体，逻辑与数据分离</td>
+              <td>类与对象、继承、多态、模板、lambda 都可以用</td>
+            </tr>
+            <tr>
+              <td>内存管理</td>
+              <td><code>malloc / calloc / realloc / free</code>，纯手动</td>
+              <td><code>new / delete</code>，并推荐用智能指针与容器自动管理</td>
+            </tr>
+            <tr>
+              <td>字符串</td>
+              <td><code>char</code> 数组 + <code>'\0'</code> 结尾，靠 <code>strcpy/strlen</code> 等函数操作</td>
+              <td><code>std::string</code>，自动扩容、可直接 <code>+</code> 拼接和比较</td>
+            </tr>
+            <tr>
+              <td>输入输出</td>
+              <td><code>printf / scanf</code>（<code>&lt;stdio.h&gt;</code>），靠格式串</td>
+              <td><code>std::cout / std::cin</code>（<code>&lt;iostream&gt;</code>），类型安全、可重载 <code>&lt;&lt;</code></td>
+            </tr>
+            <tr>
+              <td>异常处理</td>
+              <td>没有异常机制，靠返回值和 <code>errno</code> 传递错误</td>
+              <td><code>try / catch / throw</code>，错误与正常逻辑可以分离</td>
+            </tr>
+            <tr>
+              <td>命名空间</td>
+              <td>没有，大项目靠函数名前缀（如 <code>mylib_init</code>）避免重名</td>
+              <td><code>namespace</code>，把名字分组，<code>std::</code> 就是标准库的名字空间</td>
+            </tr>
+            <tr>
+              <td>函数重载</td>
+              <td><span class="no">不支持</span>，同名函数会冲突</td>
+              <td><span class="yes">支持</span>，同名函数可按参数个数/类型区分，还有默认参数</td>
+            </tr>
+            <tr>
+              <td>模板 / 泛型</td>
+              <td><span class="no">没有</span>，只能用宏近似，无类型检查</td>
+              <td><span class="yes">有</span> <code>template</code>，容器与算法都基于它，是编译期多态</td>
+            </tr>
+            <tr>
+              <td>标准库</td>
+              <td>标准库较小：stdio、stdlib、string、math、time 等函数集合</td>
+              <td>标准库庞大：STL 容器/迭代器/算法 + 字符串 + 流 + 智能指针 + 线程/文件系统等</td>
+            </tr>
+            <tr>
+              <td>类型检查</td>
+              <td>较宽松（如 <code>void*</code> 可隐式转成任意指针）</td>
+              <td>更严格，很多隐式转换被禁止，需要显式 <code>static_cast</code> 等</td>
+            </tr>
+            <tr>
+              <td>典型扩展名 / 编译器</td>
+              <td><code>.c</code>，用 <code>gcc</code> / <code>clang</code></td>
+              <td><code>.cpp / .cc / .cxx</code>，用 <code>g++</code> / <code>clang++</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>扩展特性表：C++ 独有（或明显更强）的能力</h3>
+      <div class="table-wrap">
+        <table>
+          <caption>表 2：C++ 在 C 之外提供的能力</caption>
+          <thead>
+            <tr><th>特性</th><th>说明</th><th>C 里有对应物吗</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>类与对象</td><td>数据 + 行为打包，可控制访问权限（public/private/protected）</td><td>只有 struct 装数据，没有成员函数和访问控制</td></tr>
+            <tr><td>继承与多态</td><td>复用与“一个接口多种实现”，靠虚函数表实现</td><td>需要手写函数指针结构体模拟</td></tr>
+            <tr><td>引用（<code>&amp;</code>）</td><td>变量的别名，必须初始化、不能为空，函数传参更方便</td><td>只能传指针或值</td></tr>
+            <tr><td>命名空间</td><td>解决大项目的名字冲突</td><td>靠前缀约定，无语言级支持</td></tr>
+            <tr><td>函数重载 / 运算符重载</td><td>同名函数按参数区分；还能让 <code>+</code>、<code>&lt;&lt;</code> 作用于自定义类型</td><td>不支持</td></tr>
+            <tr><td>异常</td><td><code>try/catch/throw</code>，跨函数传播错误</td><td>靠返回值 + <code>errno</code> + goto 清理</td></tr>
+            <tr><td>模板与泛型</td><td>写一次，适配多种类型；编译期展开，几乎无运行开销</td><td>宏替换，无类型检查</td></tr>
+            <tr><td>RAII</td><td>资源获取即初始化：对象析构时自动释放资源（内存、文件、锁）</td><td>手动配对释放，容易漏</td></tr>
+            <tr><td>STL</td><td>vector、map、unordered_map、set、算法、迭代器……</td><td>没有容器库，需要自己写或用第三方（如 GLib）</td></tr>
+            <tr><td>lambda 与算法库</td><td>就地写小函数，配合 <code>sort/find_if/transform</code></td><td>只能写具名函数 + 函数指针</td></tr>
+            <tr><td>智能指针</td><td><code>unique_ptr / shared_ptr / weak_ptr</code>，自动释放</td><td>裸指针 + 手动 free</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>代码示例：两个 Hello World</h3>
+
+      <p>C 版本（面向过程，靠标准库函数 <code>printf</code>）：</p>
+      <div class="code-block">
+<pre data-lang="C: hello.c"><code><span class="c">/* hello.c —— C 的 Hello World */</span>
+<span class="p">#include</span> <span class="s">&lt;stdio.h&gt;</span>          <span class="c">/* 引入 printf 的声明 */</span>
+
+<span class="t">int</span> <span class="f">main</span>(<span class="t">void</span>) {             <span class="c">/* void 表示不接收参数 */</span>
+    <span class="f">printf</span>(<span class="s">"Hello, World!\n"</span>);
+    <span class="k">return</span> <span class="n">0</span>;                <span class="c">/* 返回 0 表示正常结束 */</span>
+}</code></pre>
+      </div>
+      <p class="cmd">gcc hello.c -o hello &amp;&amp; ./hello</p>
+
+      <p>C++ 版本（用 <code>std::string</code> 和流式输出 <code>std::cout</code>）：</p>
+      <div class="code-block">
+<pre data-lang="C++: hello.cpp"><code><span class="c">// hello.cpp —— C++ 的 Hello World</span>
+<span class="p">#include</span> <span class="s">&lt;iostream&gt;</span>        <span class="c">// 输入输出流</span>
+<span class="p">#include</span> <span class="s">&lt;string&gt;</span>          <span class="c">// std::string</span>
+
+<span class="t">int</span> <span class="f">main</span>() {
+    <span class="ns">std</span>::string name = <span class="s">"World"</span>;              <span class="c">// 自动管理内存的字符串</span>
+    <span class="ns">std</span>::cout &lt;&lt; <span class="s">"Hello, "</span> &lt;&lt; name &lt;&lt; <span class="ns">std</span>::endl;  <span class="c">// 不用写格式串</span>
+    <span class="k">return</span> <span class="n">0</span>;
+}</code></pre>
+      </div>
+      <p class="cmd">g++ -std=c++17 hello.cpp -o hello &amp;&amp; ./hello</p>
+
+      <h3>代码示例：C 的结构体 vs C++ 的类</h3>
+
+      <p>同样是“学生”这个概念，C 把数据和打印函数分开写：</p>
+      <div class="code-block">
+<pre data-lang="C: struct.c"><code><span class="c">/* C：结构体只装数据，操作靠外部函数——数据和逻辑是分开的 */</span>
+<span class="p">#include</span> <span class="s">&lt;stdio.h&gt;</span>
+<span class="p">#include</span> <span class="s">&lt;string.h&gt;</span>
+
+<span class="k">struct</span> Student {                 <span class="c">/* 只能装数据成员 */</span>
+    <span class="t">char</span> name[<span class="n">32</span>];
+    <span class="t">int</span>  age;
+};
+
+<span class="c">/* 操作数据的函数必须写在结构体外面，靠参数把数据传进来 */</span>
+<span class="t">void</span> <span class="f">student_print</span>(<span class="k">const</span> <span class="k">struct</span> Student *s) {
+    <span class="f">printf</span>(<span class="s">"%s (%d)\n"</span>, s-&gt;name, s-&gt;age);
+}
+
+<span class="t">int</span> <span class="f">main</span>(<span class="t">void</span>) {
+    <span class="k">struct</span> Student s;               <span class="c">/* 注意：C 里通常要写 struct 关键字 */</span>
+    <span class="f">strcpy</span>(s.name, <span class="s">"小明"</span>);          <span class="c">/* 字符串只能靠函数拷贝，还要小心越界 */</span>
+    s.age = <span class="n">18</span>;
+    <span class="f">student_print</span>(&amp;s);
+    <span class="k">return</span> <span class="n">0</span>;
+}</code></pre>
+      </div>
+
+      <p>C++ 用 <code>class</code> 把数据和行为封在一起，还能在构造时保证对象一定合法：</p>
+      <div class="code-block">
+<pre data-lang="C++: class.cpp"><code><span class="c">// C++：类把数据和行为封装在一起，可以控制访问权限</span>
+<span class="p">#include</span> <span class="s">&lt;iostream&gt;</span>
+<span class="p">#include</span> <span class="s">&lt;string&gt;</span>
+<span class="p">#include</span> <span class="s">&lt;utility&gt;</span>
+
+<span class="k">class</span> <span class="t">Student</span> {
+<span class="k">public</span>:
+    <span class="c">// 构造函数：创建对象时自动调用，保证对象一出生就是合法状态</span>
+    <span class="f">Student</span>(<span class="ns">std</span>::string name, <span class="t">int</span> age)
+        : name_(<span class="ns">std</span>::move(name)), age_(age) {}
+
+    <span class="c">// 成员函数：直接访问自己的数据，不用把对象当参数传来传去</span>
+    <span class="t">void</span> <span class="f">print</span>() <span class="k">const</span> {
+        <span class="ns">std</span>::cout &lt;&lt; name_ &lt;&lt; <span class="s">" ("</span> &lt;&lt; age_ &lt;&lt; <span class="s">")\n"</span>;
+    }
+
+    <span class="t">int</span> <span class="f">age</span>() <span class="k">const</span> { <span class="k">return</span> age_; }   <span class="c">// 只读访问接口</span>
+
+<span class="k">private</span>:                              <span class="c">// 外部无法直接改，只能通过接口</span>
+    <span class="ns">std</span>::string name_;
+    <span class="t">int</span>         age_;
+};
+
+<span class="t">int</span> <span class="f">main</span>() {
+    <span class="t">Student</span> s(<span class="s">"小明"</span>, <span class="n">18</span>);            <span class="c">// 不用再写 struct 关键字</span>
+    s.<span class="f">print</span>();
+    <span class="k">return</span> <span class="n">0</span>;
+}</code></pre>
+      </div>
+
+      <div class="callout tip">
+        <span class="callout-title">小结</span>
+        <p>
+          C 的 <code>struct</code> 只是“把几个变量捆在一起”；
+          C++ 的 <code>class</code> 是“把数据 + 操作 + 访问规则 + 生命周期”打包成一个概念。
+          这就是抽象层次的差别。
+        </p>
+      </div>
+    </section>
+
+    <!-- ---------- 04 内存管理 ---------- -->
+    <section id="memory">
+      <h2>04 · 内存管理：手动挡 vs 半自动挡（甚至自动挡）</h2>
+
+      <p>
+        C 把内存完全交给你：申请、使用、释放都得自己来，写对了非常高效，
+        写错了就是内存泄漏、段错误、双重释放。C++ 保留了这套手动能力，
+        但额外提供了“自动回收”的工具，让这类错误在正常代码里几乎消失。
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <caption>表 3：内存管理对比</caption>
+          <thead>
+            <tr><th>对比点</th><th>C（malloc / free）</th><th>C++（new / delete 及智能指针）</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>分配 / 释放</td><td><code>malloc</code> / <code>free</code>，成对出现</td><td><code>new</code> / <code>delete</code>（数组用 <code>new[] / delete[]</code>）</td></tr>
+            <tr><td>返回值</td><td><code>void*</code>，需要强制类型转换</td><td>直接返回对应类型的指针，无需强转</td></tr>
+            <tr><td>大小计算</td><td>自己写 <code>sizeof</code> 算字节数</td><td>编译器按类型自动计算</td></tr>
+            <tr><td>是否调用构造/析构</td><td><span class="no">都不会</span>，只是拿到一块原始内存</td><td><span class="yes">都会</span>，<code>new</code> 调用构造函数，<code>delete</code> 调用析构函数</td></tr>
+            <tr><td>分配失败</td><td>返回 <code>NULL</code>，必须自己检查</td><td>默认抛 <code>std::bad_alloc</code> 异常</td></tr>
+            <tr><td>常见错误</td><td>忘记 free、重复 free、越界、悬垂指针</td><td>裸 <code>new</code> 仍需手动 <code>delete</code>，但可用智能指针规避</td></tr>
+            <tr><td>现代推荐做法</td><td>谁申请谁释放，配套写 <code>init / destroy</code> 函数</td><td>优先用 <code>std::vector</code>、<code>std::string</code>、<code>unique_ptr</code>，几乎不写裸 new</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>代码示例：C 的 malloc / free</h3>
+      <div class="code-block">
+<pre data-lang="C: malloc.c"><code><span class="p">#include</span> <span class="s">&lt;stdio.h&gt;</span>
+<span class="p">#include</span> <span class="s">&lt;stdlib.h&gt;</span>
+
+<span class="t">int</span> <span class="f">main</span>(<span class="t">void</span>) {
+    <span class="c">/* 1) 自己算字节数；2) 返回值是 void*，要强转；3) 必须检查是否失败 */</span>
+    <span class="t">int</span> *arr = (<span class="t">int</span> *)<span class="f">malloc</span>(<span class="n">5</span> * <span class="k">sizeof</span>(<span class="t">int</span>));
+    <span class="k">if</span> (arr == <span class="n">NULL</span>) {
+        <span class="f">fprintf</span>(stderr, <span class="s">"内存分配失败\n"</span>);
+        <span class="k">return</span> <span class="n">1</span>;
+    }
+
+    <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; <span class="n">5</span>; ++i) {
+        arr[i] = i * i;
+    }
+    <span class="f">printf</span>(<span class="s">"%d\n"</span>, arr[<span class="n">4</span>]);
+
+    <span class="f">free</span>(arr);          <span class="c">/* 必须自己记得释放，漏掉就泄漏 */</span>
+    arr = <span class="n">NULL</span>;         <span class="c">/* 好习惯：置空，避免悬垂指针 */</span>
+    <span class="k">return</span> <span class="n">0</span>;
+}</code></pre>
+      </div>
+
+      <h3>代码示例：C++ 的 new / delete 与智能指针</h3>
+      <div class="code-block">
+<pre data-lang="C++: new.cpp"><code><span class="p">#include</span> <span class="s">&lt;iostream&gt;</span>
+<span class="p">#include</span> <span class="s">&lt;memory&gt;</span>
+<span class="p">#include</span> <span class="s">&lt;vector&gt;</span>
+
+<span class="k">class</span> <span class="t">Widget</span> {
+<span class="k">public</span>:
+    <span class="f">Widget</span>()  { <span class="ns">std</span>::cout &lt;&lt; <span class="s">"构造 Widget\n"</span>; }
+    ~<span class="f">Widget</span>() { <span class="ns">std</span>::cout &lt;&lt; <span class="s">"析构 Widget\n"</span>; }
+};
+
+<span class="t">int</span> <span class="f">main</span>() {
+    <span class="c">// 1) new / delete：分配并调用构造函数，释放前调用析构函数</span>
+    <span class="t">Widget</span> *w = <span class="k">new</span> <span class="t">Widget</span>();
+    <span class="k">delete</span> w;                    <span class="c">// 必须配对，否则析构函数不会执行</span>
+
+    <span class="c">// 2) 数组要用 new[] / delete[] 配对，混用是未定义行为</span>
+    <span class="t">int</span> *arr = <span class="k">new</span> <span class="t">int</span>[<span class="n">5</span>]{<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>, <span class="n">5</span>};
+    <span class="k">delete</span>[] arr;
+
+    <span class="c">// 3) 现代 C++ 首选：智能指针，离开作用域自动释放</span>
+    <span class="k">auto</span> sp = <span class="ns">std</span>::make_unique&lt;<span class="t">Widget</span>&gt;();
+    sp-&gt;<span class="f">doSomething</span>();          <span class="c">// 自动释放，异常安全</span>
+
+    <span class="c">// 4) 栈上的对象：离开作用域自动析构，这就是 RAII</span>
+    {
+        <span class="t">Widget</span> local;             <span class="c">// 进入作用域：构造</span>
+    }                             <span class="c">// 离开作用域：析构，无需任何手写释放代码</span>
+
+    <span class="c">// 5) 容器帮你管内存，扩容、释放都不用操心</span>
+    <span class="ns">std</span>::vector&lt;<span class="t">int</span>&gt; v{<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>};
+    v.<span class="f">push_back</span>(<span class="n">4</span>);
+
+    <span class="k">return</span> <span class="n">0</span>;
+}   <span class="c">// sp 在这里自动 delete</span></code></pre>
+      </div>
+
+      <div class="callout warn">
+        <span class="callout-title">新手最容易踩的坑</span>
+        <ul>
+          <li><code>new[]</code> 分配的内存必须用 <code>delete[]</code> 释放，不能写 <code>delete</code>。</li>
+          <li><code>malloc</code> 出来的内存<strong>不能</strong>用 <code>delete</code> 释放，<code>new</code> 出来的也<strong>不能</strong>用 <code>free</code>——混用是未定义行为。</li>
+          <li>C 里忘了检查 <code>malloc</code> 是否返回 <code>NULL</code>，程序在内存紧张时会直接崩。</li>
+          <li>C++ 里“裸 new 忘了 delete”依然会泄漏，所以能用智能指针就别用裸指针。</li>
+        </ul>
+      </div>
+
+      <h3>RAII：C++ 内存管理的核心思想</h3>
+      <p>
+        RAII 全称“资源获取即初始化”（Resource Acquisition Is Initialization），
+        翻译成人话就是：<strong>把资源的生命周期绑在对象的生命周期上</strong>。
+        构造函数里拿到资源，析构函数里释放资源。只要对象能被正确销毁
+        （栈对象离开作用域、智能指针超出范围、容器被清空），资源就一定会被释放，
+        哪怕中途抛了异常也一样。
+      </p>
+      <p>
+        这套思路不只用于内存：文件句柄、互斥锁、socket、数据库连接都可以用 RAII 包装。
+        C 里要达成同样的效果，通常得在每个 return / goto 分支前手写清理代码，一不小心就漏。
+      </p>
+    </section>
+
+    <!-- ---------- 05 标准库 ---------- -->
+    <section id="stdlib">
+      <h2>05 · 标准库：一把工具 vs 一整间车间</h2>
+
+      <h3>C 的标准库：小而够用</h3>
+      <p>
+        C 标准库（libc）主要是一批函数，特点是“薄、快、无隐藏开销”：
+      </p>
+      <ul>
+        <li><code>&lt;stdio.h&gt;</code>：<code>printf</code>、<code>scanf</code>、<code>fopen</code>、<code>fread</code></li>
+        <li><code>&lt;stdlib.h&gt;</code>：<code>malloc</code>、<code>free</code>、<code>atoi</code>、<code>qsort</code>、<code>rand</code></li>
+        <li><code>&lt;string.h&gt;</code>：<code>strcpy</code>、<code>strlen</code>、<code>memcpy</code>、<code>strcmp</code></li>
+        <li><code>&lt;math.h&gt;</code>、<code>&lt;time.h&gt;</code>、<code>&lt;ctype.h&gt;</code>、<code>&lt;assert.h&gt;</code></li>
+      </ul>
+      <p>
+        注意：C 的<strong>动态数组、哈希表、字符串类都没有</strong>。想要就得自己写，
+        或者引入第三方库。这也是 C 项目里到处是手写数据结构的根本原因。
+      </p>
+
+      <h3>C++ 的标准库：STL 是重头戏</h3>
+      <p>
+        C++ 标准库 = C 标准库（兼容部分）+ 一整套基于模板的组件。核心是 <strong>STL</strong>：
+      </p>
+      <div class="table-wrap">
+        <table>
+          <caption>表 4：STL 主要组成部分</caption>
+          <thead>
+            <tr><th>类别</th><th>代表组件</th><th>作用</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>容器</td><td><code>vector</code>、<code>array</code>、<code>deque</code>、<code>list</code>、<code>map</code>、<code>unordered_map</code>、<code>set</code>、<code>stack</code>、<code>queue</code></td><td>动态数组、链表、红黑树、哈希表等常用数据结构，自动管理内存</td></tr>
+            <tr><td>迭代器</td><td><code>begin() / end()</code>、<code>iterator</code></td><td>统一的遍历方式，让算法与容器解耦</td></tr>
+            <tr><td>算法</td><td><code>sort</code>、<code>find</code>、<code>find_if</code>、<code>count</code>、<code>transform</code>、<code>accumulate</code>、<code>for_each</code></td><td>不用自己写排序查找，直接组合使用</td></tr>
+            <tr><td>字符串</td><td><code>std::string</code>、<code>std::string_view</code></td><td>自动扩容、可直接比较与拼接</td></tr>
+            <tr><td>输入输出</td><td><code>iostream</code>、<code>fstream</code>、<code>sstream</code></td><td>类型安全的流式 IO，支持自定义类型</td></tr>
+            <tr><td>智能指针</td><td><code>unique_ptr</code>、<code>shared_ptr</code>、<code>weak_ptr</code></td><td>自动释放堆内存</td></tr>
+            <tr><td>并发与工具</td><td><code>thread</code>、<code>mutex</code>、<code>atomic</code>、<code>chrono</code>、<code>filesystem</code>、<code>optional</code>、<code>variant</code></td><td>线程、时间、路径、可选值等现代设施</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>同一个任务：把一组数字排序，两者的写法差异很直观。</p>
+
+      <div class="code-block">
+<pre data-lang="C: qsort"><code><span class="c">/* C：qsort 需要自己写比较函数，还要传元素大小和个数 */</span>
+<span class="p">#include</span> <span class="s">&lt;stdlib.h&gt;</span>
+<span class="p">#include</span> <span class="s">&lt;stdio.h&gt;</span>
+
+<span class="t">int</span> <span class="f">cmp_int</span>(<span class="k">const</span> <span class="t">void</span> *a, <span class="k">const</span> <span class="t">void</span> *b) {
+    <span class="k">return</span> (*(<span class="k">const</span> <span class="t">int</span> *)a) - (*(<span class="k">const</span> <span class="t">int</span> *)b);
+}
+
+<span class="t">int</span> <span class="f">main</span>(<span class="t">void</span>) {
+    <span class="t">int</span> a[] = {<span class="n">5</span>, <span class="n">2</span>, <span class="n">8</span>, <span class="n">1</span>, <span class="n">9</span>};
+    <span class="t">int</span> n = <span class="k">sizeof</span>(a) / <span class="k">sizeof</span>(a[<span class="n">0</span>]);
+    <span class="f">qsort</span>(a, n, <span class="k">sizeof</span>(<span class="t">int</span>), cmp_int);
+    <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; n; ++i) <span class="f">printf</span>(<span class="s">"%d "</span>, a[i]);
+    <span class="k">return</span> <span class="n">0</span>;
+}</code></pre>
+      </div>
+
+      <div class="code-block">
+<pre data-lang="C++: STL"><code><span class="c">// C++：容器 + 算法 + lambda，表达意图而不是实现细节</span>
+<span class="p">#include</span> <span class="s">&lt;iostream&gt;</span>
+<span class="p">#include</span> <span class="s">&lt;vector&gt;</span>
+<span class="p">#include</span> <span class="s">&lt;algorithm&gt;</span>
+
+<span class="t">int</span> <span class="f">main</span>() {
+    <span class="ns">std</span>::vector&lt;<span class="t">int</span>&gt; v{<span class="n">5</span>, <span class="n">2</span>, <span class="n">8</span>, <span class="n">1</span>, <span class="n">9</span>};
+
+    <span class="ns">std</span>::sort(v.<span class="f">begin</span>(), v.<span class="f">end</span>());                  <span class="c">// 不用手写比较函数</span>
+
+    <span class="c">// 甚至可以一行指定排序规则</span>
+    <span class="ns">std</span>::sort(v.<span class="f">begin</span>(), v.<span class="f">end</span>(),
+              [](<span class="t">int</span> a, <span class="t">int</span> b) { <span class="k">return</span> a &gt; b; });   <span class="c">// 从大到小</span>
+
+    <span class="k">for</span> (<span class="t">int</span> x : v) {                            <span class="c">// 范围 for，遍历更省心</span>
+        <span class="ns">std</span>::cout &lt;&lt; x &lt;&lt; <span class="s">' '</span>;
+    }
+    <span class="k">return</span> <span class="n">0</span>;
+}</code></pre>
+      </div>
+
+      <div class="callout">
+        <span class="callout-title">关于“零开销抽象”</span>
+        <p>
+          STL 里的一切都是模板，在编译期就确定类型并生成代码，
+          运行时基本没有额外的解释或动态查找开销（除虚函数、哈希等本身的成本外）。
+          这就是 C++ 常说的“<strong>你不用为没用到的东西付出代价，用到的也不会比手写慢</strong>”。
+        </p>
+      </div>
+    </section>
+
+    <!-- ---------- 06 编译与兼容性 ---------- -->
+    <section id="compat">
+      <h2>06 · 编译与兼容性：C++ 不是 C 的超集</h2>
+
+      <h3>编译流程基本相同</h3>
+      <p>
+        两者都遵循经典的四步流程，这也是它们能高效、能跨平台的原因：
+      </p>
+      <ol>
+        <li><strong>预处理</strong>：展开 <code>#include</code>、替换宏、处理条件编译。</li>
+        <li><strong>编译</strong>：把源码翻译成汇编（含语法检查、优化）。</li>
+        <li><strong>汇编</strong>：汇编代码变成目标文件 <code>.o / .obj</code>。</li>
+        <li><strong>链接</strong>：把多个目标文件和库合成可执行文件。</li>
+      </ol>
+      <p>
+        常用命令也很像：C 用 <code>gcc hello.c -o hello</code>，
+        C++ 用 <code>g++ -std=c++17 hello.cpp -o hello</code>。
+        另外 <code>gcc</code> 也能编 C++，只是需要显式链接 C++ 标准库（<code>-lstdc++</code>），
+        所以实践中 C++ 项目直接用 <code>g++</code> 更省事。
+      </p>
+
+      <h3>“大部分 C 代码可以被 C++ 编译器编译”——但只是大部分</h3>
+      <p>
+        常听到“C 是 C++ 的子集”，严格来说这是<strong>近似说法</strong>。
+        绝大多数合法的 C 代码确实能不加修改地用 C++ 编译，但存在一批明确的不兼容点：
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <caption>表 5：常见的 C / C++ 不兼容点</caption>
+          <thead>
+            <tr><th>不兼容点</th><th>C 的写法</th><th>C++ 的要求</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>void* 隐式转换</td>
+              <td><code>int *p = malloc(n);</code> 可以直接赋值</td>
+              <td>必须强转：<code>int *p = (int*)malloc(n);</code>，否则编译报错</td>
+            </tr>
+            <tr>
+              <td>关键字冲突</td>
+              <td><code>class</code>、<code>new</code>、<code>delete</code>、<code>this</code>、<code>bool</code>、<code>template</code>、<code>try</code>、<code>namespace</code> 等可以当变量名</td>
+              <td>这些都是保留字，用作标识符会报错</td>
+            </tr>
+            <tr>
+              <td>函数声明</td>
+              <td><code>int f();</code> 表示“参数未指定”</td>
+              <td><code>int f();</code> 表示“不接收参数”，要写 <code>int f(void);</code> 才等效</td>
+            </tr>
+            <tr>
+              <td>字符串字面量</td>
+              <td><code>"abc"</code> 类型是 <code>char[]</code>，可赋给 <code>char*</code></td>
+              <td>类型是 <code>const char[]</code>，赋给 <code>char*</code> 在 C++11 起被禁止</td>
+            </tr>
+            <tr>
+              <td>字符常量</td>
+              <td><code>'a'</code> 的类型是 <code>int</code></td>
+              <td><code>'a'</code> 的类型是 <code>char</code></td>
+            </tr>
+            <tr>
+              <td>结构体标签</td>
+              <td>必须写 <code>struct Foo f;</code>（除非 typedef）</td>
+              <td>可以直接写 <code>Foo f;</code></td>
+            </tr>
+            <tr>
+              <td>C 独有特性</td>
+              <td>变长数组 VLA、<code>restrict</code>、<code>_Generic</code>、<code>_Atomic</code>、复合字面量、部分指定初始化</td>
+              <td>标准 C++ 不支持或支持方式不同，直接编译会失败</td>
+            </tr>
+            <tr>
+              <td>函数名修饰</td>
+              <td>符号名基本就是函数名（<code>add</code>）</td>
+              <td>会做名字修饰（name mangling，如 <code>_Z3addii</code>），因为要支持重载</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>混合编程：extern "C"</h3>
+      <p>
+        正因为 C++ 会改写函数名，如果想让 C 代码调用 C++ 写的函数（或反过来），
+        就必须用 <code>extern "C"</code> 告诉编译器“这个名字按 C 的规则来”：
+      </p>
+      <div class="code-block">
+<pre data-lang="C++: extern_c"><code><span class="c">// mylib.h —— 一份头文件同时给 C 和 C++ 使用</span>
+<span class="p">#ifdef</span> __cplusplus
+<span class="k">extern</span> <span class="s">"C"</span> {              <span class="c">// C++ 编译器看到这段，就关掉名字修饰</span>
+<span class="p">#endif</span>
+
+<span class="t">int</span> <span class="f">add</span>(<span class="t">int</span> a, <span class="t">int</span> b);    <span class="c">// 用 C 的调用约定导出</span>
+
+<span class="p">#ifdef</span> __cplusplus
+}
+<span class="p">#endif</span></code></pre>
+      </div>
+      <p>
+        反过来，C++ 调用 C 库（比如 zlib、SQLite、OpenSSL）通常只需要包含头文件即可，
+        因为这些库的头文件本身已经做了 <code>extern "C"</code> 处理。
+      </p>
+
+      <div class="callout warn">
+        <span class="callout-title">结论</span>
+        <p>
+          “C++ 兼容 C”是一种<strong>高度兼容但不绝对</strong>的关系。
+          绝大多数 C 代码能直接编译通过，但涉及关键字、<code>void*</code> 转换、C 特有语法的部分需要小幅修改。
+        </p>
+      </div>
+    </section>
+
+    <!-- ---------- 07 适用场景 ---------- -->
+    <section id="scenarios">
+      <h2>07 · 适用场景：没有最好，只有最合适</h2>
+
+      <div class="compare">
+        <div class="card c">
+          <h4><span class="badge">C</span> 更适合这些场景</h4>
+          <ul>
+            <li><strong>操作系统内核与驱动</strong>：Linux 内核、Windows 内核、各类驱动</li>
+            <li><strong>嵌入式 / 单片机 / RTOS</strong>：资源极小，没有 C++ 运行时的空间</li>
+            <li><strong>实时系统</strong>：需要可预测的执行时间，不希望有隐藏的构造/析构开销</li>
+            <li><strong>需要稳定 ABI 的基础库</strong>：libc、zlib、SQLite、OpenSSL</li>
+            <li><strong>跨语言调用的底层接口</strong>：几乎每种语言都能调用 C</li>
+            <li><strong>教学与打基础</strong>：指针、内存、编译链接这些概念在 C 里最直观</li>
+          </ul>
+        </div>
+        <div class="card cpp">
+          <h4><span class="badge">C++</span> 更适合这些场景</h4>
+          <ul>
+            <li><strong>游戏引擎与图形渲染</strong>：Unreal Engine、各类 3D 引擎</li>
+            <li><strong>音视频与图像处理</strong>：编解码器、实时滤镜、计算机视觉</li>
+            <li><strong>数据库与中间件</strong>：MySQL、MongoDB、Redis 的部分模块</li>
+            <li><strong>浏览器与虚拟机</strong>：Chromium、V8、LLVM</li>
+            <li><strong>金融高频交易</strong>：既要极致性能，又要复杂业务抽象</li>
+            <li><strong>桌面应用与 CAD</strong>：需要大量 UI、模块化和复杂数据结构</li>
+            <li><strong>大型长期项目</strong>：多人协作时，类、命名空间、STL 能显著降低维护成本</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <caption>表 6：选型速查</caption>
+          <thead>
+            <tr><th>你的需求</th><th>更推荐</th><th>原因</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>跑在几 KB 内存的单片机上</td><td><span class="yes">C</span></td><td>没有运行时开销，工具链成熟，编译器行为可预测</td></tr>
+            <tr><td>写一个要支持十年的大项目</td><td><span class="yes">C++</span></td><td>抽象机制便于分模块、便于重构和长期维护</td></tr>
+            <tr><td>需要被 Python / Java 调用</td><td>都可以</td><td>导出 C ABI 即可，C 更简单，C++ 记得 <code>extern "C"</code></td></tr>
+            <tr><td>写内核模块</td><td><span class="yes">C</span></td><td>内核环境基本只接受 C，C++ 需要特殊裁剪</td></tr>
+            <tr><td>做游戏 / 高性能计算</td><td><span class="yes">C++</span></td><td>既有性能，又有容器、模板、并发等工具</td></tr>
+            <tr><td>刚开始学编程</td><td><span class="yes">C 起步，再学 C++</span></td><td>先把指针和内存搞明白，学 C++ 会轻松很多</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout tip">
+        <span class="callout-title">它们不是对手，而是搭档</span>
+        <p>
+          现实项目里两者经常共存：底层用 C 写、上层用 C++ 组织；
+          或者核心算法用 C++ 写，通过 <code>extern "C"</code> 暴露给其他语言。
+          学 C++ 的同时理解 C，会让你对“程序到底怎么跑起来”有更扎实的认识。
+        </p>
+      </div>
+    </section>
+
+    <!-- ---------- 08 总结 ---------- -->
+    <section id="summary">
+      <h2>08 · 总结与学习建议</h2>
+
+      <p>
+        把全文压缩成一句话：<strong>C 给你对机器的完全控制，C++ 在保留这份控制的同时，给了你抽象的工具。</strong>
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <caption>表 7：一页速记</caption>
+          <thead>
+            <tr><th>维度</th><th>C</th><th>C++</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>核心思想</td><td>过程式：用函数拆解问题</td><td>多范式：按问题选择过程 / 对象 / 泛型 / 函数式</td></tr>
+            <tr><td>抽象手段</td><td>函数、结构体、宏</td><td>类、继承、多态、模板、lambda、命名空间</td></tr>
+            <tr><td>内存</td><td>malloc / free，全靠自己</td><td>new / delete + 智能指针 + 容器 + RAII</td></tr>
+            <tr><td>错误处理</td><td>返回值 + errno</td><td>异常 + 返回值</td></tr>
+            <tr><td>代码复用</td><td>函数、宏、手写数据结构</td><td>继承、组合、模板、STL</td></tr>
+            <tr><td>学习曲线</td><td>语言本身小，但指针内存要时间</td><td>语言庞大，现代 C++ 更需要系统地学</td></tr>
+            <tr><td>典型比喻</td><td>手动挡汽车：直接、可控、要技术</td><td>手自一体：想手动就手动，想省心也能省心</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>给初学者的学习路径建议</h3>
+      <ol>
+        <li>
+          <strong>先用 C 打好地基</strong>：变量与类型、指针与数组、结构体、函数与递归、
+          编译链接过程、<code>malloc/free</code>、调试（gdb / 断点 / 看内存）。
+          这些概念在 C 里最赤裸，学明白了受用终身。
+        </li>
+        <li>
+          <strong>再过渡到 C++</strong>：先学“带类的 C”部分——类、构造析构、封装、引用、
+          函数重载；然后学继承与多态（<code>virtual</code>、虚析构）；
+          再学模板与 STL 容器算法。
+        </li>
+        <li>
+          <strong>重点掌握现代 C++ 的几条纪律</strong>：
+          尽量不写裸 <code>new/delete</code>；优先 <code>vector</code> / <code>string</code> / 智能指针；
+          用 <code>const</code> 表达意图；理解值语义与移动语义（<code>std::move</code>）；
+          知道什么是未定义行为。
+        </li>
+        <li>
+          <strong>动手比看书重要</strong>：把本文的示例都敲一遍、改一改、让它报错，
+          再看编译器的错误信息——这是最快的学习方式。
+        </li>
+      </ol>
+
+      <div class="callout quote">
+        <span class="callout-title">最后一句</span>
+        <p>
+          不要问“C 和 C++ 哪个更好”，要问“我手上的这个问题，
+          更需要贴近硬件的控制力，还是更需要大型代码的组织能力”。
+          答案不同，选择就不同——而这两门语言，都值得你花时间去理解。
+        </p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ============ 页脚 ============ -->
+<footer>
+  <div class="footer-inner">
+    <p style="margin:0">
+      <strong>C++ 与 C 的区别</strong> · 面向初学者与转行者的入门对比指南
+    </p>
+    <div class="footer-links">
+      <a href="#history">回到开头</a>
+      <a href="#features">核心对比表</a>
+      <a href="#summary">总结</a>
+    </div>
+    <p style="margin:0">单文件页面 · 无外部依赖 · 内容仅供学习参考</p>
+  </div>
+</footer>
+
+<button id="toTop" type="button" title="返回顶部" aria-label="返回顶部">↑</button>
+
+<script>
+(function () {
+  'use strict';
+
+  var tocLinks = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var sections = tocLinks
+    .map(function (a) { return document.querySelector(a.getAttribute('href')); })
+    .filter(Boolean);
+  var toTop = document.getElementById('toTop');
+
+  /* ---------- 1. 目录点击：平滑滚动（带偏移量修正） ---------- */
+  function headerOffset() {
+    // 手机上目录是顶部吸顶条，需要留出它的高度
+    var sidebar = document.querySelector('.sidebar');
+    if (window.matchMedia('(max-width: 980px)').matches && sidebar) {
+      return sidebar.offsetHeight + 10;
+    }
+    return 16;
+  }
+
+  tocLinks.forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      var id = link.getAttribute('href');
+      var target = document.querySelector(id);
+      if (!target) { return; }
+
+      e.preventDefault();
+
+      var top = target.getBoundingClientRect().top + window.pageYOffset - headerOffset();
+      var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      window.scrollTo({
+        top: Math.max(top, 0),
+        behavior: reduce ? 'auto' : 'smooth'
+      });
+
+      // 更新地址栏锚点，方便复制分享（不触发跳转）
+      if (window.history && window.history.pushState) {
+        window.history.pushState(null, '', id);
+      }
+      setActive(id);
+    });
+  });
+
+  /* ---------- 2. 滚动时高亮当前章节 ---------- */
+  var tocList = document.querySelector('.toc ul');
+
+  function setActive(id) {
+    tocLinks.forEach(function (a) {
+      var on = a.getAttribute('href') === id;
+      a.classList.toggle('active', on);
+      // 手机端目录是横向滚动条：只调整它自身的 scrollLeft，
+      // 不用 scrollIntoView，避免整个页面被带着跳动
+      if (on && tocList && tocList.scrollWidth > tocList.clientWidth + 4) {
+        var listRect = tocList.getBoundingClientRect();
+        var itemRect = a.getBoundingClientRect();
+        if (itemRect.left < listRect.left || itemRect.right > listRect.right) {
+          tocList.scrollLeft += (itemRect.left - listRect.left)
+                              - (listRect.width - itemRect.width) / 2;
+        }
+      }
+    });
+  }
+
+  // 优先用 IntersectionObserver，性能更好且不会反复触发重排
+  if ('IntersectionObserver' in window) {
+    var visible = new Map();
+
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        visible.set(entry.target.id, entry.isIntersecting ? entry.intersectionRatio : 0);
+      });
+
+      var bestId = null;
+      var bestRatio = 0;
+      visible.forEach(function (ratio, id) {
+        if (ratio > bestRatio) { bestRatio = ratio; bestId = id; }
+      });
+      if (bestId) { setActive('#' + bestId); }
+    }, {
+      rootMargin: '-15% 0px -65% 0px',
+      threshold: [0, 0.1, 0.25, 0.5, 0.75, 1]
+    });
+
+    sections.forEach(function (s) { observer.observe(s); });
+  } else {
+    // 兜底方案：滚动节流判断
+    var ticking = false;
+    window.addEventListener('scroll', function () {
+      if (ticking) { return; }
+      ticking = true;
+      window.requestAnimationFrame(function () {
+        var pos = window.pageYOffset + headerOffset() + 40;
+        var current = sections[0];
+        sections.forEach(function (s) {
+          if (s.offsetTop <= pos) { current = s; }
+        });
+        if (current) { setActive('#' + current.id); }
+        ticking = false;
+      });
+    }, { passive: true });
+  }
+
+  /* ---------- 3. 返回顶部按钮 ---------- */
+  var lastScroll = 0;
+  function onScrollToTop() {
+    var y = window.pageYOffset || document.documentElement.scrollTop;
+    if (y > 400) {
+      toTop.classList.add('show');
+    } else {
+      toTop.classList.remove('show');
+    }
+    lastScroll = y;
+  }
+
+  window.addEventListener('scroll', onScrollToTop, { passive: true });
+  onScrollToTop();
+
+  toTop.addEventListener('click', function () {
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+  });
+
+  /* ---------- 4. 带锚点打开页面时，修正一次滚动位置 ---------- */
+  window.addEventListener('load', function () {
+    if (window.location.hash) {
+      var target = document.querySelector(window.location.hash);
+      if (target) {
+        var top = target.getBoundingClientRect().top + window.pageYOffset - headerOffset();
+        window.scrollTo({ top: Math.max(top, 0), behavior: 'auto' });
+        setActive(window.location.hash);
+      }
+    } else if (sections.length) {
+      setActive('#' + sections[0].id);
+    }
+  });
+})();
+</script>
+</body>
+</html>
