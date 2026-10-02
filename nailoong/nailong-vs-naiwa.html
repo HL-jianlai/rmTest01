@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>从奶龙到奶蛙：一支黄色生物的进化论</title>
+<style>
+  :root{
+    --bg:#fdf6e8;
+    --bg2:#fffaf0;
+    --ink:#3d3226;
+    --muted:#8a7b68;
+    --yellow:#ffd93d;
+    --yellow-d:#f5a623;
+    --green:#6fbf73;
+    --line:#e8dcc4;
+    --card:#fffdf7;
+    --shadow:0 4px 20px rgba(120,90,40,.08);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",sans-serif;
+    line-height:1.85;
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(255,217,61,.22), transparent 42%),
+      radial-gradient(circle at 88% 30%, rgba(111,191,115,.16), transparent 40%);
+  }
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px}
+  a{color:var(--yellow-d)}
+
+  /* nav */
+  nav{
+    position:sticky;top:0;z-index:30;background:rgba(253,246,232,.9);
+    backdrop-filter:blur(10px);border-bottom:2px solid var(--line);
+  }
+  .navin{display:flex;align-items:center;gap:16px;height:58px;overflow-x:auto;white-space:nowrap}
+  .navin .brand{font-weight:800;font-size:19px;color:var(--yellow-d)}
+  .navin a{color:var(--muted);font-size:14px;text-decoration:none}
+  .navin a:hover{color:var(--ink)}
+
+  /* hero */
+  .hero{padding:74px 0 44px;text-align:center}
+  .hero h1{
+    font-size:clamp(34px,6.5vw,58px);margin:0 0 14px;line-height:1.25;font-weight:900;
+  }
+  .hero h1 .y{color:var(--yellow-d)}
+  .hero .sub{color:var(--muted);font-size:clamp(15px,2.4vw,18px);max-width:620px;margin:0 auto 26px}
+  .duo{display:flex;align-items:center;justify-content:center;gap:26px;flex-wrap:wrap;margin-top:8px}
+  .duo figure{margin:0;text-align:center}
+  .duo img{
+    width:clamp(150px,30vw,230px);border-radius:20px;border:3px solid #fff;
+    box-shadow:var(--shadow);background:#fff;
+  }
+  .duo .arrow{font-size:38px;color:var(--yellow-d);font-weight:900}
+  .duo figcaption{margin-top:10px;font-weight:700;font-size:15px;color:var(--muted)}
+
+  /* sections */
+  section{padding:46px 0}
+  h2{font-size:clamp(24px,4.2vw,33px);margin:0 0 8px;font-weight:900}
+  h2 .n{
+    display:inline-block;background:var(--yellow);color:#5a4410;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;
+    font-size:18px;margin-right:12px;vertical-align:3px;
+  }
+  .lead{color:var(--muted);margin:0 0 24px}
+  h3{font-size:19px;margin:28px 0 8px;font-weight:800}
+
+  /* cards */
+  .card{
+    background:var(--card);border:2px solid var(--line);border-radius:18px;
+    padding:22px;box-shadow:var(--shadow);
+  }
+  .grid{display:grid;gap:18px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+
+  /* timeline */
+  .tl{position:relative;padding-left:30px}
+  .tl::before{content:"";position:absolute;left:9px;top:8px;bottom:8px;width:3px;
+    background:linear-gradient(180deg,var(--yellow-d),var(--green));border-radius:2px}
+  .tli{position:relative;margin-bottom:22px}
+  .tli::before{content:"";position:absolute;left:-27px;top:9px;width:14px;height:14px;
+    border-radius:50%;background:var(--card);border:3px solid var(--yellow-d)}
+  .tli b{color:var(--yellow-d)}
+  .tli p{margin:2px 0 0;color:var(--muted);font-size:15px}
+
+  /* compare table */
+  table{width:100%;border-collapse:collapse;margin-top:6px;font-size:15px}
+  th,td{padding:13px 15px;border-bottom:2px solid var(--line);vertical-align:top}
+  th{background:#fff3d4;font-weight:800}
+  td:first-child{font-weight:700;color:var(--muted);width:22%;white-space:nowrap}
+  tr:hover td{background:rgba(255,217,61,.09)}
+
+  /* gallery */
+  .gal{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+  .gal figure{margin:0;background:var(--card);border:2px solid var(--line);border-radius:16px;
+    overflow:hidden;box-shadow:var(--shadow);transition:transform .2s}
+  .gal figure:hover{transform:translateY(-4px) rotate(-.6deg)}
+  .gal img{width:100%;display:block;background:#fff;aspect-ratio:4/3;object-fit:cover}
+  .gal figcaption{padding:9px 12px;font-size:13px;color:var(--muted)}
+
+  /* callout */
+  .note{
+    background:#fff8d9;border-left:5px solid var(--yellow-d);border-radius:0 14px 14px 0;
+    padding:16px 20px;margin:20px 0;
+  }
+  .note b{color:var(--yellow-d)}
+  .quote{
+    background:var(--card);border:2px dashed var(--yellow-d);border-radius:16px;
+    padding:20px 24px;margin:22px 0;font-size:16px;
+  }
+  .quote span{color:var(--yellow-d);font-weight:800}
+
+  footer{border-top:2px solid var(--line);margin-top:30px;padding:26px 0 40px;
+    text-align:center;color:var(--muted);font-size:13.5px}
+
+  .reveal{opacity:0;transform:translateY(20px);transition:opacity .6s,transform .6s}
+  .reveal.on{opacity:1;transform:none}
+
+  @media(max-width:600px){
+    .duo .arrow{transform:rotate(90deg)}
+    td:first-child{white-space:normal}
+  }
+</style>
+</head>
+<body>
+
+<nav><div class="wrap navin">
+  <span class="brand">🐸 奶龙 × 奶蛙</span>
+  <a href="#origin">奶龙是谁</a>
+  <a href="#mutate">怎么变异的</a>
+  <a href="#diff">两者区别</a>
+  <a href="#gallery">图集</a>
+  <a href="#ending">结语</a>
+</div></nav>
+
+<div class="wrap">
+
+  <div class="hero">
+    <h1>从<span class="y">奶龙</span>到<span class="y">奶蛙</span><br>一支黄色生物的变异史</h1>
+    <p class="sub">
+      一个 IP 是动画公司画的、有版权、要过审的正式角色；
+      另一个是网友用 AI 一键生成的、没公司没策划案、却比本体更火的野生兄弟。
+      这中间发生了什么？
+    </p>
+    <div class="duo">
+      <figure>
+        <img src="images/nl_01_poster.jpg" alt="奶龙 IP 形象">
+        <figcaption>奶龙 · 正版持证上岗</figcaption>
+      </figure>
+      <div class="arrow">➜</div>
+      <figure>
+        <img src="images/nw_01_laugh.png" alt="奶蛙 狂笑形象">
+        <figcaption>奶蛙 · 无证但笑得很嚣张</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <!-- 1 -->
+  <section id="origin" class="reveal">
+    <h2><span class="n">1</span>先认识一下本尊：奶龙</h2>
+    <p class="lead">奶龙是腾讯游戏旗下的正经动画 IP，长得像个胖墩墩的黄色团子，肚子里一块米白色腹肌。</p>
+    <div class="grid g2">
+      <div class="card">
+        <h3 style="margin-top:0">有背景、有伙伴、有户口</h3>
+        <p>《奶龙爆笑嘉年华》有完整剧集和番剧，还有一整个宇宙的配角：蓝不蓝、小七等。奶龙在剧里会卖汤圆、会拿放大镜找东西、会跟人聊天——一个正常的、有剧情的动画角色。</p>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">打工人的日常</h3>
+        <p>它住卧室、坐教室、跑书房，认真地过着一个上班族的黄色人生。表情是温和的，眼睛是清澈的绿。整体气质可以概括为：<b>可爱但老实</b>。</p>
+      </div>
+    </div>
+    <figure style="margin:22px 0 0">
+      <img src="images/nl_06_group.jpg" alt="奶龙与伙伴合影" style="width:100%;border-radius:18px;border:3px solid #fff;box-shadow:var(--shadow)">
+      <figcaption style="text-align:center;color:var(--muted);font-size:13.5px;margin-top:8px">奶龙全家福：奶龙（中间那位）与各位同事</figcaption>
+    </figure>
+  </section>
+
+  <!-- 2 -->
+  <section id="mutate" class="reveal">
+    <h2><span class="n">2</span>变异是怎么发生的</h2>
+    <p class="lead">简单说：一个念头 + 一个 AI 生成器 + 全网网友的接力。</p>
+    <div class="tl">
+      <div class="tli"><b>第一步 · AI 出手</b><p>有人拿 AI 3D 生成器，把奶龙丢进去改了几个参数。加上了四肢，加上了手，加上了「一个更胖的肚子」，再让它做一件事——大笑。就这一下，物种诞生了。</p></div>
+      <div class="tli"><b>第二步 · 抽象加成</b><p>网友给它取名「奶蛙」，又叫「大笑奶龙」「变异奶龙」。名字一出来，它就有了户口。蛙，是因为它四肢一蹲配绿眼睛确实像蛙；奶，是因为它还是那个黄色的胖东西。</p></div>
+      <div class="tli"><b>第三步 · 一键循环</b><p>配套的「循环大笑」小程序上线，点一下就原地狂笑，停不下来。从此这个形象从一张图变成了一个动作。</p></div>
+      <div class="tli"><b>第四步 · 全网接力</b><p>奶蛙从一个表情包，迅速长成了一整个游戏宇宙：合成大奶蛙、旅行奶蛙、奶蛙快跑、奶蛙工厂，还有奶蛙居民局的 NFC 身份卡。它甚至接棒了停运的《旅行青蛙》。</p></div>
+    </div>
+    <div class="quote">
+      奶蛙最妙的一点：<span>它没有公司、没有策划案，也没有一个可以独占署名的创造者。</span>
+      它是一群网友接力喂出来的产物，每个人都觉得自己做了一点，于是每个人都成了作者。
+    </div>
+    <div class="grid g3" style="margin-top:22px">
+      <div class="card"><h3>奶龙的动作</h3><p>找东西、卖汤圆、跟小七说话、坐在床边发呆。</p></div>
+      <div class="card"><h3>奶蛙的动作</h3><p>笑。就这一个动作，但可以循环一万次。</p></div>
+      <div class="card"><h3>共同点</h3><p>都是那个黄色胖子。奶蛙本质上是奶龙学会了「抽象」之后的样子。</p></div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section id="diff" class="reveal">
+    <h2><span class="n">3</span>奶龙 vs 奶蛙：一份严肃的对比报告</h2>
+    <p class="lead">以下内容基于严谨的观察（也就是我看了三十多张图得出的结论）。</p>
+    <table>
+      <thead><tr><th>对比项</th><th>奶龙</th><th>奶蛙</th></tr></thead>
+      <tbody>
+        <tr><td>出身</td><td>动画公司出品，有合同有版权</td><td>网友 AI 生成，无合同无版权</td></tr>
+        <tr><td>手脚</td><td>基础款：无手臂，靠小短腿蹦跶</td><td>升级款：配齐双手，能叉腰、能捧腹、能挥手</td></tr>
+        <tr><td>身材</td><td>圆润可爱，标准奶爸体型</td><td>肚子更大，更方，更「有分量」</td></tr>
+        <tr><td>表情</td><td>温和、友善、偶尔呆萌</td><td>永远在笑，嘴咧到耳根，眼睛眯成缝</td></tr>
+        <tr><td>招牌动作</td><td>没有固定动作，看剧集</td><td>仰头狂笑，且能无限循环</td></tr>
+        <tr><td>社交属性</td><td>可可爱爱，适合做表情包</td><td>抽象幽默，适合做二创素材</td></tr>
+        <tr><td>作品数量</td><td>几部动画剧集</td><td>一堆小游戏、NFC 卡、周边</td></tr>
+        <tr><td>创作署名</td><td>能写上「腾讯游戏」</td><td>写不上，所以人人有份</td></tr>
+        <tr><td>最大区别</td><td>奶龙是<span>被设计出来的</span></td><td>奶蛙是<span>被玩出来的</span></td></tr>
+      </tbody>
+    </table>
+    <div class="note">
+      <b>一句话总结：</b>奶龙是「奶龙爆笑嘉年华」的主角，奶蛙是「奶龙爆笑嘉年华」的二创主角。
+      前者有剧本，后者只有情绪——但情绪这东西，传得比剧本快。
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section id="gallery" class="reveal">
+    <h2><span class="n">4</span>图集：证据在此</h2>
+
+    <h3>奶龙本体（有 IP、很守规矩）</h3>
+    <div class="gal" style="margin-bottom:34px">
+      <figure><img src="images/nl_02_poster4.jpg" alt="嘉年华4海报"><figcaption>《奶龙爆笑嘉年华 4》海报</figcaption></figure>
+      <figure><img src="images/nl_03_poster2.jpg" alt="嘉年华2海报"><figcaption>《嘉年华 2》海报</figcaption></figure>
+      <figure><img src="images/nl_04_season1.jpg" alt="第一季海报"><figcaption>第一季</figcaption></figure>
+      <figure><img src="images/nl_05_promo.jpg" alt="联名周边宣传"><figcaption>腾讯游戏联动周边</figcaption></figure>
+      <figure><img src="images/nl_07_magnifier.jpg" alt="拿放大镜的奶龙"><figcaption>拿放大镜找东西的奶龙</figcaption></figure>
+      <figure><img src="images/nl_13_soup.jpg" alt="卖汤圆的奶龙"><figcaption>认真卖汤圆的奶龙</figcaption></figure>
+      <figure><img src="images/nl_10_classroom.jpg" alt="教室里的奶龙"><figcaption>在教室读书的奶龙</figcaption></figure>
+      <figure><img src="images/nl_11_bedroom.jpg" alt="卧室里的奶龙"><figcaption>卧室中的奶龙</figcaption></figure>
+    </div>
+
+    <h3>奶蛙本体（无 IP、笑得很放肆）</h3>
+    <div class="gal" style="margin-bottom:34px">
+      <figure><img src="images/nw_05_laugh.gif" alt="奶蛙狂笑动图"><figcaption>核心技能：狂笑（可循环）</figcaption></figure>
+      <figure><img src="images/nw_02_app.png" alt="循环大笑小程序"><figcaption>「循环大笑」小程序截图</figcaption></figure>
+      <figure><img src="images/nw_03_headback.jpg" alt="仰头大笑的奶蛙"><figcaption>仰头大笑</figcaption></figure>
+      <figure><img src="images/nw_04_think.png" alt="思考的奶蛙"><figcaption>捏下巴思考</figcaption></figure>
+      <figure><img src="images/nw_06_belly.gif" alt="摸肚子"><figcaption>摸肚子站立</figcaption></figure>
+      <figure><img src="images/nw_07_wave.gif" alt="招手"><figcaption>招手示意</figcaption></figure>
+      <figure><img src="images/nw_08_profile.gif" alt="侧脸近景"><figcaption>侧脸近景</figcaption></figure>
+      <figure><img src="images/nw_09_bedroom.gif" alt="卧室站立"><figcaption>卧室里的奶蛙</figcaption></figure>
+      <figure><img src="images/nw_10_study.gif" alt="书房行走"><figcaption>书房里走路的奶蛙</figcaption></figure>
+    </div>
+
+    <h3>中间地带：奶龙的拟人化改造（二创前置站）</h3>
+    <p class="lead">在奶龙变成奶蛙之前，还有一批「给奶龙装上手脚」的尝试。可以理解为奶蛙的爷爷辈。</p>
+    <div class="gal">
+      <figure><img src="images/nr_02_quad.jpg" alt="拟人身材四宫格"><figcaption>奶龙拟人身材四宫格</figcaption></figure>
+      <figure><img src="images/nr_01_realistic.jpg" alt="3D写实身材"><figcaption>3D 写实身材改造</figcaption></figure>
+      <figure><img src="images/nr_03_cat.png" alt="奶龙抱猫"><figcaption>抱猫版奶龙</figcaption></figure>
+      <figure><img src="images/nr_04_stand.gif" alt="白底站立动图"><figcaption>白底站立（动图）</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section id="ending" class="reveal">
+    <h2><span class="n">5</span>所以，这场演变说明了什么</h2>
+    <div class="grid g2">
+      <div class="card">
+        <h3 style="margin-top:0">从角色到符号</h3>
+        <p>奶龙是一个角色——有名字、有同事、有剧情，所以你能在剧集里认出它。奶蛙是一个符号——因为它只需要一个情绪就能被识别。你在群里看到一个狂笑黄色生物，0.5 秒就能知道是谁。</p>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">从被设计到被共创</h3>
+        <p>官方给你一个完成品，你只能接受或者喜欢。网友给你一个半成品，你可以接着加游戏、加卡片、加周边。奶蛙的传播力，来自它留了足够多的空位给人填。</p>
+      </div>
+    </div>
+    <div class="quote" style="text-align:center;margin-top:26px">
+      奶龙是<span>动画公司的作品</span>，<br>
+      奶蛙是<span>互联网的产物</span>。<br><br>
+      前者想让观众记住角色，<br>
+      后者只想让所有人笑一下——<br>
+      结果记住了角色的，反而被大家拿来做成了它自己。
+    </div>
+    <div class="note">
+      <b>小提醒：</b>本页所有图片均来自公开网络，其中奶龙为腾讯游戏 IP，奶蛙为网友二创，均未获官方授权。
+      内容仅供个人玩梗学习，公开使用请注意版权。
+    </div>
+  </section>
+
+  <footer>
+    单文件静态页面 · 图片整理自 <code>nailong_imgs/</code> 与 <code>naiwa/</code> 两个文件夹 · 仅供学习参考
+  </footer>
+</div>
+
+<script>
+  const io = new IntersectionObserver(es=>{
+    es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('on'); io.unobserve(e.target);} });
+  },{threshold:.06});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+  // 图片加载失败时显示占位提示
+  document.querySelectorAll('.gal img, .duo img, figure > img').forEach(img=>{
+    img.addEventListener('error',()=>{
+      img.style.background='var(--line)';
+      img.alt='图片加载失败：'+img.getAttribute('src');
+    });
+  });
+</script>
+</body>
+</html>
