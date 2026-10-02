@@ -17,3 +17,7 @@ Let's say helloworld!
     \_/      \__/  \__/  \__/  \__/      \_/               \_/   \_/    \_/   \_/  
 ```
 总之能参加RM招新很开心！  
+## cpp-vs-c
+用deepseek写的网页，介绍c与c嘎嘎的区别  
+## nailong-vs-naiwa
+用某限时免费模型写的网页，介绍奶龙与奶蛙的区别  
