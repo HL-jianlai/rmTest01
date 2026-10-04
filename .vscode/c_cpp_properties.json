@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "name": "rmTest01",
+            "compileCommands": "${workspaceFolder}/camera/build/compile_commands.json",
+            "includePath": [
+                "${workspaceFolder}/camera/include",
+                "/usr/include/opencv4",
+                "/usr/include"
+            ],
+            "defines": [
+                "FMT_LOCALE",
+                "FMT_SHARED",
+                "SPDLOG_COMPILED_LIB",
+                "SPDLOG_FMT_EXTERNAL",
+                "SPDLOG_SHARED_LIB"
+            ],
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}

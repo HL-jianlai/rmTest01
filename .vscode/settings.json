@@ -1,0 +1,7 @@
+{
+    "cmake.sourceDirectory": "${workspaceFolder}/camera",
+    "cmake.buildDirectory": "${workspaceFolder}/camera/build",
+    "cmake.configureOnOpen": true,
+    "cmake.useCMakePresets": "never",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/camera/build/compile_commands.json"
+}
