@@ -16,13 +16,12 @@
 #include <sdk/DxImageProc.h> // 图像处理接口:DxRaw8toRGB24Ex 等
 
 #include <opencv2/opencv.hpp>
-
 #include <chrono>
 #include <cstring>
 #include <iostream>
 #include <string>
 #include <vector>
-#include<spdlog/spdlog.h>
+#include <spdlog/spdlog.h>
 
 
 // ------------------------------------------------------------------
