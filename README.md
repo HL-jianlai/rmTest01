@@ -1,4 +1,7 @@
 # rmTest01
+已实现：在daheng.cc中将调试信息用spdlog显示  
+未实现：日志封装并用sink输出为文件  
+  
 Let's say helloworld!  
 这里是一个README但是我不知道写什么  
 不会真的要helloworld吧！（欧布  
