@@ -1,0 +1,22 @@
+# ---- CMake / 编译产物 ----
+# 这些都是本机生成的,里面写着绝对路径,推上去对别人没用,
+# 而且体积是源码的几十倍(一个 .o 就 200KB+)。
+build/
+build_clean/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CMakeOutput.log
+compile_commands.json
+
+# ---- 目标文件与库 ----
+*.o
+*.so
+*.a
+
+# ---- 编译出的可执行文件(源码是 daheng.cc / recognize.cc,不冲突)----
+/camera/daheng
+/camera2/recognize
+
+# ---- 编辑器本地配置 ----
+.vscode/

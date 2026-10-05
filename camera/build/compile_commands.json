@@ -1,7 +1,0 @@
-[
-{
-  "directory": "/home/hl/rm/rmTest01/camera/build",
-  "command": "/usr/bin/c++ -DFMT_LOCALE -DFMT_SHARED -DSPDLOG_COMPILED_LIB -DSPDLOG_FMT_EXTERNAL -DSPDLOG_SHARED_LIB -I/home/hl/rm/rmTest01/camera/include -isystem /usr/include/opencv4 -g -std=gnu++17 -o CMakeFiles/daheng.dir/daheng.cc.o -c /home/hl/rm/rmTest01/camera/daheng.cc",
-  "file": "/home/hl/rm/rmTest01/camera/daheng.cc"
-}
-]
