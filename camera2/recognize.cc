@@ -5,10 +5,12 @@
 //   2. HSV 通道做颜色阈值,红色灯条要拆成两段色相区间([0,10] ∪ [160,180])
 //      蓝色灯条落在 [100,130];S/V 双阈值用来压掉暗部和低饱和背景
 //   3. 形态学闭运算把 LED 灯珠连成整根灯条,再开运算去噪点
+//      (这一步无条件执行,不受"是否显示二值图"影响)
 //   4. findContours + minAreaRect,用 长宽比 / 填充率 / 角度 / 亮度 筛出灯条候选
 //      (刻意不限制灯条的像素大小,远近目标一视同仁)
 //   5. 同色灯条两两配对:中心距、灯条长度比、朝向夹角、位置关系打分
-//   6. 由左灯条左边缘 + 右灯条右边缘拼出装甲板四角(脚点),画框画点
+//   6. 角点从灯条轮廓上取真正的外沿极值点(不是 minAreaRect 的角),
+//      即左灯条最左侧上下两点、右灯条最右侧上下两点,画框画点
 //   7. 输出识别帧率、算法耗时、颜色(Red/Blue)
 //
 // 编译:见同目录 CMakeLists.txt
@@ -33,27 +35,49 @@
 // ==================================================================
 
 // ---- 颜色阈值:红蓝灯条 HSV ----
+//
+// 关键前提:灯条点亮后**芯部是过曝的**。传感器在芯部三通道全部打满,
+// 颜色被冲淡 —— 蓝色灯条芯部变成 B=G=255 的青色(H=90),
+// 红色灯条芯部变成 R=G=255 的橙黄色(H≈11~20)。
+// 如果色相窗口只按"纯色"来定(H_red≤10、H_blue≥95),
+// 芯部整片被拒,掩膜就变成一圈空心的环。环一旦断开,
+// minAreaRect 会缩成细条、填充率暴跌,灯条就再也检不出来,
+// 或者碎成一颗颗灯珠。实测:红色芯部 H=11~20,蓝色芯部 H=90、S 只有 129~175。
+// 所以窗口必须往"过曝方向"放开,判据靠 V(亮)而不是靠 S(纯)。
 namespace ColorCfg {
 constexpr int kRedHMin1   = 0;    // 红:色相环绕,拆两段
-constexpr int kRedHMax1   = 10;
+constexpr int kRedHMax1   = 15;   // 必须覆盖过曝芯部的 H=11~20(实测)
 constexpr int kRedHMin2   = 160;
 constexpr int kRedHMax2   = 179;
-constexpr int kRedSMin    = 120;   // 饱和度下限,压掉灰白背景
-constexpr int kRedVMin    = 100; // 明度下限,压掉暗部
+constexpr int kRedSMin    = 120;  // 饱和度下限,压掉灰白背景
+constexpr int kRedVMin    = 100;  // 明度下限,压掉暗部
 
-constexpr int kBlueHMin   = 120;
-constexpr int kBlueHMax   = 135;
-constexpr int kBlueSMin   = 170;
-constexpr int kBlueVMin   = 250;
+constexpr int kBlueHMin   = 85;   // 必须覆盖过曝芯部的 H=90(实测)
+constexpr int kBlueHMax   = 140;
+// S 别再往上加:蓝色芯部实测只有 129~175,调到 170 会把整条灯条拒掉。
+// 也别往下调太多:实测 S=125 就开始冒出新的杂散连通域,150 是拐点。
+constexpr int kBlueSMin   = 150;
+constexpr int kBlueVMin   = 100;
 }  // namespace ColorCfg
 
 // ---- 灯条几何筛选 ----
-// 注意:这里刻意不设"灯条多长/多宽"的上下限,像素尺寸不限制,
-// 只靠"长宽比 + 填充率 + 亮度"判断,远近大小的灯条都能进得来。
+// 主判据是"长宽比 + 填充率 + 亮度"这三个相对量,远近大小的灯条都能进得来,
+// 不按像素尺寸卡远近。但光有相对量不够,必须再配一个很低的绝对下限 kMinArea
+// 把零星噪点挡在外面 —— 原因见 DetectLightBars 里的说明。
 namespace BarCfg {
+// 绝对尺寸下限,很低,只为滤掉零星噪点。必须存在:其余关卡全是比值、与尺度无关,
+// 没有它的话 3x2 的噪点也能配出高分(见 DetectLightBars 里的详细说明)。
+constexpr double kMinArea   = 60.0;   // 轮廓面积(像素)
+constexpr float  kMinLength = 12.0f;  // 灯条长边(像素)
 constexpr float kMinRatio  = 1.5f;    // 长/宽 比下限(灯条是细长条)
-constexpr float kMaxRatio  = 18.0f;   // 长/宽 比上限
-constexpr float kMinBright = 130.0;// ROI 平均 V,LED 一定比背景亮
+// 长/宽 比上限。这个值要给 yaw 留足余量:装甲板绕 yaw 转 φ 后,灯条的横向厚度
+// 按 cosφ 收缩,而长度基本不变,长宽比就按 1/cosφ 涨上去 —— 正对时 7.1,
+// 40° 时 11.0,60° 已经 18.0,65° 20.5,70° 27.4,80° 50.6。
+// 原来写 18 等于"转 60° 以上必毙",而且灯条的填充率(0.91~0.95)和亮度(229)
+// 此时全都健康 —— 被毙掉的是一根几何上完全正常的灯条,纯粹吃亏在薄。
+// 放宽到 40 可覆盖到约 80°;再往上灯条只剩几像素宽,掩膜本身就撑不住了。
+constexpr float kMaxRatio  = 40.0f;   // 长/宽 比上限
+constexpr float kMinBright = 130.0;// 灯条自身像素的平均 V,LED 一定比背景亮
 constexpr float kMinFill   = 0.25f;   // contour 面积 / minAreaRect 面积
 // 实心灯条的填充率天然接近 1.0,这里不设上限,只保留填充率下限。
 // 不要往下调这个值:抗锯齿边缘 + 噪声会让 mask 比 minAreaRect 略小,
@@ -64,7 +88,7 @@ constexpr float kMaxFill   = 1.00f;
 
 // ---- 灯条配对(装甲板) ----
 namespace PairCfg {
-constexpr float kMaxAngleDiff     = 20.0f;  // 两灯条长轴夹角上限(度)
+constexpr float kMaxAngleDiff     = 25.0f;  // 两灯条长轴夹角上限(度)
 constexpr float kMaxLengthDiffR   = 0.8f;   // |L1-L2| / ((L1+L2)/2) 上限
 constexpr float kMaxYDiffRatio    = 0.5f;// |dy| / 灯条平均长度
 constexpr float kMinCenterDist    = 1.0f;// 两灯条中心距下限
@@ -225,7 +249,11 @@ bool AddGain(GX_DEV_HANDLE device, double delta_db) {
 // ==================================================================
 
 // 生成某一颜色的二值图。红色要合并两段色相区间(0 附近环绕)。
-cv::Mat BuildColorMask(const cv::Mat &hsv, int color, bool show) {
+// 形态学无条件执行 —— 这里踩过坑:早先把它挂在"是否显示二值图"的开关上,
+// 结果是关掉显示时(程序默认状态)灯条不做闭运算,LED 灯珠连不成整根,
+// 每颗灯珠单独去做长宽比筛选全部被毙掉,一根灯条都检不出。
+// 检测结果绝不能取决于用户有没有按 b 键。
+cv::Mat BuildColorMask(const cv::Mat &hsv, int color) {
     cv::Mat mask;
     if (color == kRed) {
         cv::Mat m1, m2;
@@ -239,12 +267,15 @@ cv::Mat BuildColorMask(const cv::Mat &hsv, int color, bool show) {
                     cv::Scalar(ColorCfg::kBlueHMax, 255, 255), mask);
     }
 
-    if (show) {
-        cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 9));
-        // 竖直方向长核:把断开的 LED 灯珠连成一根完整灯条
-        cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, kernel);
-        cv::morphologyEx(mask, mask, cv::MORPH_OPEN, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
-    }
+    // 竖直方向长核:把断开的 LED 灯珠连成一根完整灯条
+    cv::morphologyEx(mask, mask, cv::MORPH_CLOSE,
+                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 9)));
+    // 这里原本还有一次 MORPH_OPEN(3x3),已经去掉 —— 它会啃断细灯条:
+    // 灯条只有几像素宽时,腰上不到 3px 的地方被 3x3 的腐蚀整个吃掉,
+    // 一根灯条断成两截。实测蓝色装甲板缩到 0.18(灯条 7px 宽)时,
+    // 闭运算已经把它接成完整一根,紧接着的开运算又在细腰处切回两段,
+    // 于是同一根灯条的上半截和下半截各自去配对,凭空多出一块装甲板。
+    // 去噪点的职责现在由 kMinArea(轮廓面积下限)承担,开运算是冗余的。
     return mask;
 }
 
@@ -253,6 +284,153 @@ float NormalizeAngle(float deg) {
     while (deg > 90.0f) deg -= 180.0f;
     while (deg <= -90.0f) deg += 180.0f;
     return deg;
+}
+
+// 现场量测:把画面里"亮且饱和"的像素按色相分箱打出来。
+// 调颜色阈值不该靠猜 —— 把灯条摆进画面按 p,看它的 H/S/V 落在哪个区间,
+// 再照着改 ColorCfg。蓝色灯条最容易在这里翻车:色相偏青一点就会漏。
+void DumpBrightHue(const cv::Mat &hsv) {
+    int hist[180] = {0};
+    long bright = 0, saturated = 0;
+    int max_s = 0, min_s = 255, max_v = 0;
+    for (int y = 0; y < hsv.rows; ++y) {
+        const cv::Vec3b *row = hsv.ptr<cv::Vec3b>(y);
+        for (int x = 0; x < hsv.cols; ++x) {
+            const int H = row[x][0], S = row[x][1], V = row[x][2];
+            if (V < BarCfg::kMinBright) continue;   // 只看够亮的
+            ++bright;
+            if (S < 90) continue;                   // 低饱和的是白/灰,不是 LED
+            ++saturated;
+            ++hist[H];
+            max_s = std::max(max_s, S);
+            min_s = std::min(min_s, S);
+            max_v = std::max(max_v, V);
+        }
+    }
+    spdlog::info("亮像素(V>={}): {} 个,其中 S>=90 的: {} 个", BarCfg::kMinBright, bright, saturated);
+    if (saturated == 0) {
+        spdlog::info("没有饱和的亮像素 —— 灯条不在画面里,或曝光太低");
+        return;
+    }
+    spdlog::info("这些像素的 S 范围 [{}, {}],V 最大 {}", min_s, max_s, max_v);
+    for (int b = 0; b < 180; b += 5) {
+        long c = 0;
+        for (int k = b; k < b + 5; ++k) c += hist[k];
+        if (c == 0) continue;
+        std::string bar(static_cast<size_t>(std::min<long>(50, c / 100)), '#');
+        spdlog::info("  H={:3d}-{:3d} : {:8d} {}", b, b + 4, c, bar);
+    }
+    spdlog::info("当前蓝色窗口 H∈[{},{}] S>={} V>={};红色 H∈[{},{}]∪[{},{}] S>={} V>={}",
+                 ColorCfg::kBlueHMin, ColorCfg::kBlueHMax, ColorCfg::kBlueSMin, ColorCfg::kBlueVMin,
+                 ColorCfg::kRedHMin1, ColorCfg::kRedHMax1, ColorCfg::kRedHMin2, ColorCfg::kRedHMax2,
+                 ColorCfg::kRedSMin, ColorCfg::kRedVMin);
+}
+
+// 兜底:退化情形下直接把矩形四角按 x 分左右、按 y 分上下
+void SplitRectCorners(LightBar &bar) {
+    std::vector<cv::Point2f> pts = bar.points;
+    std::sort(pts.begin(), pts.end(), [](const cv::Point2f &a, const cv::Point2f &b) {
+        return a.x != b.x ? a.x < b.x : a.y < b.y;
+    });
+    std::vector<cv::Point2f> left_pts = {pts[0], pts[1]};
+    std::vector<cv::Point2f> right_pts = {pts[2], pts[3]};
+    std::sort(left_pts.begin(), left_pts.end(),
+              [](const cv::Point2f &a, const cv::Point2f &b) { return a.y < b.y; });
+    std::sort(right_pts.begin(), right_pts.end(),
+              [](const cv::Point2f &a, const cv::Point2f &b) { return a.y < b.y; });
+    bar.left_top = left_pts[0];
+    bar.left_bottom = left_pts[1];
+    bar.right_top = right_pts[0];
+    bar.right_bottom = right_pts[1];
+}
+
+// 取灯条真正的外沿角点:左端最上/最下 + 右端最上/最下。
+//
+// 不能用 minAreaRect 的四个角点直接当答案。minAreaRect 求的是"最小外接矩形",
+// 灯条本身一旦被透视压成梯形(装甲板转 yaw 或离得近时),矩形的角就落在
+// 灯条轮廓外面 —— 合成梯形实测偏差 6.9px,而这里取轮廓极值点只有 0.1px。
+// 灯条接近矩形时两者持平(都 <1.5px),所以统一走这条路没有代价。
+//
+// 做法:先用 minAreaRect 定出长轴方向,再沿垂直于长轴的方向把轮廓点投影,
+// 两端各取极值附近 band 内的点,每端的最上/最下两点就是外沿角点。
+void ExtractOuterCorners(const std::vector<cv::Point> &contour, LightBar &bar) {
+    if (contour.size() < 2) {
+        SplitRectCorners(bar);
+        return;
+    }
+
+    // 长轴方向。取法与 BarDirection 一致 —— boxPoints 的顺序和直觉相反:
+    // p0->p1 是 size.height 方向、p1->p2 是 size.width 方向(见 BarDirection 的说明)。
+    // 原来这里写成 (size.height >= size.width) ? edge_h : edge_w,两个分支取到的
+    // 都是【短边】,于是下面的 along 恒为短边、n 恒为长轴,整个函数的前提就是错的。
+    cv::Point2f along = (bar.rect.size.width >= bar.rect.size.height)
+                            ? bar.points[2] - bar.points[1]
+                            : bar.points[1] - bar.points[0];
+    const float alen = std::hypot(along.x, along.y);
+    if (alen < 1e-3f) {
+        SplitRectCorners(bar);
+        return;
+    }
+    const cv::Point2f u = along / alen;   // 长轴单位向量:沿灯条方向
+    const cv::Point2f n(-u.y, u.x);       // 横跨灯条方向(垂直于长轴)
+
+    // 分区必须【横跨长轴】来分两侧,把灯条切成两条长边。
+    // 原来这里写的是"取和 x 轴更贴合的那个方向":灯条竖直时那个方向恰好就是
+    // 横跨方向,所以 0° 看着是对的;可灯条一旦躺平,它选的变成沿长轴的方向,
+    // left_*/right_* 于是取成了灯条的【两个端点】而不是【两条长边】,
+    // 四边形错开整整一根灯条 —— 实测 45°~120° 误差 ~390px ≈ 灯条长 410px。
+    cv::Point2f dir = n;
+    if (dir.x < 0.0f) dir = -dir;         // 统一指向右,left_* 落在 -dir 侧
+
+    // 轮廓点全部投影到 dir 上,两端即极值
+    std::vector<float> s(contour.size());
+    float smin = 1e9f, smax = -1e9f;
+    for (size_t i = 0; i < contour.size(); ++i) {
+        s[i] = (cv::Point2f(contour[i]) - bar.center).dot(dir);
+        smin = std::min(smin, s[i]);
+        smax = std::max(smax, s[i]);
+    }
+
+    // band 是"算作同一条边"的容差:太小会把抗锯齿的毛刺排除掉导致端点选偏,
+    // 太大则会把对侧的点也拉进来。按灯条厚度取,不再用 length。
+    const float band0 = std::max(2.0f, 0.20f * bar.width);
+    auto pick_side = [&](bool left_side) {
+        std::vector<cv::Point2f> sel;
+        // 上限取 0.6*width:两侧之间隔着整整一个 width,band 不到 width 就不会
+        // 把对侧的点捞进来;下限给到 3 是为了让细灯条也能多试一档容差
+        // (原先上限 0.5*width,7px 宽的灯条只能试 band=2 一次,凑不够两个点就退化)。
+        for (float band = band0; band <= std::max(3.0f, 0.6f * bar.width); band *= 2.0f) {
+            sel.clear();
+            for (size_t i = 0; i < contour.size(); ++i) {
+                if (left_side ? (s[i] <= smin + band) : (s[i] >= smax - band)) {
+                    sel.emplace_back(contour[i]);
+                }
+            }
+            if (sel.size() >= 2) break;   // 一条边至少要凑出两个端点
+        }
+        if (sel.size() < 2) return std::make_pair(bar.center, bar.center);
+
+        // 在这条边上取【沿长轴】的两个端点,不能按 y 取:
+        // 灯条横躺时这条边是水平的,边上所有点 y 几乎相同,按 y 排序会取到
+        // 边中间的两个点,真正的端点反而丢了。
+        float tmin = 1e9f, tmax = -1e9f;
+        cv::Point2f pa = sel[0], pb = sel[0];
+        for (const cv::Point2f &p : sel) {
+            const float t = (p - bar.center).dot(u);
+            if (t < tmin) { tmin = t; pa = p; }
+            if (t > tmax) { tmax = t; pb = p; }
+        }
+        // 命名仍按图像里的上下:y 小的叫 top,符合"左灯条最左侧上下两点"的说法。
+        // 灯条横躺时两个 y 几乎相等,取哪个都不影响四边形本身的正确性。
+        return pa.y <= pb.y ? std::make_pair(pa, pb) : std::make_pair(pb, pa);
+    };
+
+    auto L = pick_side(true);
+    auto R = pick_side(false);
+    bar.left_top = L.first;
+    bar.left_bottom = L.second;
+    bar.right_top = R.first;
+    bar.right_bottom = R.second;
 }
 
 // 从二值图里提取并筛选灯条
@@ -278,12 +456,19 @@ std::vector<LightBar> DetectLightBars(const cv::Mat &mask, const cv::Mat &value_
         bar.rect = cv::minAreaRect(contour);
         bar.length = std::max(bar.rect.size.width, bar.rect.size.height);
         bar.width = std::min(bar.rect.size.width, bar.rect.size.height);
-        if (bar.length < 1.0f) {
+
+        // 1) 绝对尺寸下限。这是必须的:下面每一道关卡(长宽比、填充率、
+        //    角度差、长度差、中心距比、轴偏比)全是【比值】,与尺度无关,
+        //    于是两块相距 3px 的 3x2 噪点和两块相距 1000px 的 400x60 灯条
+        //    能拿到完全一样的分数。实测拿一张普通图纸(984x733,只有抗锯齿的
+        //    文字和色块)去跑,冒出 3x2 / 4x2 / 9x5 / 12x3 的"灯条",
+        //    还配出了 score 0.89 的"装甲板"—— 比两张真实装甲板(0.67/0.70)还高。
+        //    这里把下限压得很低,只为滤掉零星噪点:实测真实灯条缩到 0.12
+        //    (47x8,面积约 350)仍比下限大 5 倍以上,不影响远距离识别。
+        double contour_area_raw = cv::contourArea(contour);
+        if (contour_area_raw < BarCfg::kMinArea || bar.length < BarCfg::kMinLength) {
             continue;
         }
-
-        // 1) 不限制灯条像素大小,远近目标一视同仁;
-        //    唯一的下限是上面 length >= 1.0,避免下面算长宽比时除零
 
         // 2) 长宽比:灯条必须是细长条,方块/整块亮区会被滤掉
         float ratio = bar.length / bar.width;
@@ -318,29 +503,32 @@ std::vector<LightBar> DetectLightBars(const cv::Mat &mask, const cv::Mat &value_
         }
         bar.angle = NormalizeAngle(long_axis_angle);
 
-        // 5) 亮度:ROI 内平均 V(HSV 明度通道),LED 条显著高于周围
+        // 5) 亮度:只在灯条【自己的像素】上对 V 通道取平均。
+        //    这里踩过坑:原先用 bar.rect.boundingRect() 取 ROI 再求均值,但那是旋转矩形的
+        //    【轴对齐】外接框 —— 灯条竖直时框贴合,一旦倾斜 30°,框面积涨到灯条本体的
+        //    3.6 倍,均值被大片暗背景拉垮:同一根灯条 0° 量到 162、10° 只剩 98、30° 只剩 64,
+        //    而 kMinBright=130。结果是"转一点点就检不出",且和真实亮度无关,纯粹是几何假象。
+        //    改成把轮廓填成掩膜、只统计掩膜内的像素,量出来的亮度就与旋转无关了。
         cv::Rect roi = bar.rect.boundingRect() & cv::Rect(0, 0, value_channel.cols, value_channel.rows);
         if (roi.area() <= 0) continue;
-        bar.brightness = static_cast<float>(cv::mean(value_channel(roi))[0]);
+        {
+            cv::Mat roi_mask = cv::Mat::zeros(roi.size(), CV_8UC1);
+            std::vector<cv::Point> shifted;
+            shifted.reserve(contour.size());
+            for (const cv::Point &p : contour) {
+                shifted.emplace_back(p.x - roi.x, p.y - roi.y);
+            }
+            const std::vector<std::vector<cv::Point>> one{shifted};
+            cv::drawContours(roi_mask, one, 0, cv::Scalar(255), cv::FILLED);
+            if (cv::countNonZero(roi_mask) == 0) continue;
+            bar.brightness = static_cast<float>(cv::mean(value_channel(roi), roi_mask)[0]);
+        }
         if (bar.brightness < BarCfg::kMinBright) {
             continue;
         }
 
-        // 6) 拆分左右两侧端点(按 x 排,前两个是最左的)
-        std::vector<cv::Point2f> pts = bar.points;
-        std::sort(pts.begin(), pts.end(), [](const cv::Point2f &a, const cv::Point2f &b) {
-            return a.x != b.x ? a.x < b.x : a.y < b.y;
-        });
-        std::vector<cv::Point2f> left_pts = {pts[0], pts[1]};
-        std::vector<cv::Point2f> right_pts = {pts[2], pts[3]};
-        std::sort(left_pts.begin(), left_pts.end(),
-                  [](const cv::Point2f &a, const cv::Point2f &b) { return a.y < b.y; });
-        std::sort(right_pts.begin(), right_pts.end(),
-                  [](const cv::Point2f &a, const cv::Point2f &b) { return a.y < b.y; });
-        bar.left_top = left_pts[0];
-        bar.left_bottom = left_pts[1];
-        bar.right_top = right_pts[0];
-        bar.right_bottom = right_pts[1];
+        // 6) 从轮廓上取真正的外沿角点(见 ExtractOuterCorners 的说明)
+        ExtractOuterCorners(contour, bar);
 
         bar.color = color;
         bars.push_back(bar);
@@ -351,6 +539,25 @@ std::vector<LightBar> DetectLightBars(const cv::Mat &mask, const cv::Mat &value_
 // ==================================================================
 // 五、灯条配对 -> 装甲板四角
 // ==================================================================
+
+// 灯条长轴的单位方向向量(指向长边方向)。
+// 这里踩过坑,必须记下 boxPoints 的【实际】顺序 —— 它和直觉是反的:
+// 实测一根 rect.size=(410.2, 69.2) 的灯条,p0->p1 的长度是 69.2(= size.height),
+// p1->p2 的长度是 410.2(= size.width)。也就是说 p0->p1 是 height 方向、
+// p1->p2 是 width 方向。所以我原先按注释"width 是 p0->p1"取长轴,取到的是【短边】,
+// 方向近水平,中心连线往上一投影就是 990px,配对全灭。
+//   (同样因此,DetectLightBars 里算出来的 bar.angle 量的是短边方向而非长轴方向。
+//    它依然稳定、两根灯条之间的角度差依然可靠,故不改动,只在此备注。)
+cv::Point2f BarDirection(const LightBar &bar) {
+    // 必须比较 rect 自己的 width/height,不能写 bar.length >= bar.width:
+    // length 按定义就是 max(width,height),那个条件恒为真,等于永远取 p2-p1,
+    // 只在 size.width 恰好是长边时才碰巧对 —— 实测 z=500/yaw=50° 时 OpenCV
+    // 把某根矩形的 width/height 报反了,轴偏瞬间从 0.008 跳到 1.413,配对归零。
+    cv::Point2f d = bar.rect.size.width >= bar.rect.size.height ? bar.points[2] - bar.points[1]
+                                                                : bar.points[1] - bar.points[0];
+    float n = std::hypot(d.x, d.y);
+    return n > 1e-6f ? cv::Point2f(d.x / n, d.y / n) : cv::Point2f(0.0f, 1.0f);
+}
 
 // 两根灯条是不是同一块装甲板?返回得分(0~1),不匹配返回 0
 float MatchScore(const LightBar &a, const LightBar &b, int *large_armor) {
@@ -372,9 +579,17 @@ float MatchScore(const LightBar &a, const LightBar &b, int *large_armor) {
     float dist_ratio = dist / avg_length;
     if (dist_ratio < PairCfg::kMinDistRatio || dist_ratio > PairCfg::kMaxDistRatio) return 0.0f;
 
-    // 4) 垂直错位:灯条基本在同一水平线上
-    float y_diff = std::abs(delta.y);
-    if (y_diff / avg_length > PairCfg::kMaxYDiffRatio) return 0.0f;
+    // 4) 沿长轴方向的错位:同一块装甲板的两根灯条是"肩并肩"的,中心连线应该
+    //    几乎垂直于灯条长轴,在长轴方向上的投影分量越小越好。
+    //    这里必须投影到灯条自身的坐标轴上,不能直接用图像的 Δy —— 踩过坑:
+    //    装甲板绕 roll 转 θ 时 Δy 按 d·sinθ 涨上去,实测 10° 就到 0.585、
+    //    30° 到 1.381,而 kMaxYDiffRatio=0.5,于是"歪一点就配不上";
+    //    可那两根灯条全程严格平行(角度差恒 0.5°)、相对位置一点没变,
+    //    变大的是坐标系转了之后的 Δy,不是错位。投影到长轴后这个量在
+    //    roll 0°~40° 全程 ≈ 0,与旋转无关。
+    cv::Point2f dir = BarDirection(a);
+    float off_axis = std::abs(delta.x * dir.x + delta.y * dir.y);
+    if (off_axis / avg_length > PairCfg::kMaxYDiffRatio) return 0.0f;
 
     *large_armor = dist_ratio < PairCfg::kSmallArmorRatio ? 1 : 0;
 
@@ -385,7 +600,7 @@ float MatchScore(const LightBar &a, const LightBar &b, int *large_armor) {
     float ideal_ratio = *large_armor ? 1.2f : PairCfg::kSmallArmorRatio + 1.0f;
     float s_dist = 1.0f - std::abs(dist_ratio - ideal_ratio) / ideal_ratio;
     s_dist = std::max(0.0f, s_dist);
-    float s_y = 1.0f - (y_diff / avg_length) / PairCfg::kMaxYDiffRatio;
+    float s_y = 1.0f - (off_axis / avg_length) / PairCfg::kMaxYDiffRatio;
 
     float score = PairCfg::kWeightAngle * s_angle + PairCfg::kWeightLength * s_len +
                   PairCfg::kWeightDist * s_dist + PairCfg::kWeightY * s_y;
@@ -658,7 +873,7 @@ int main(int argc, char *argv[]) {
     // ------------------------------------------------------------------
     // 3. 识别循环
     // ------------------------------------------------------------------
-    spdlog::info("装甲板识别启动:b 显示二值图,e/d 调曝光,a/q 调增益,ESC 退出");
+    spdlog::info("装甲板识别启动:b 显示二值图,p 量测灯条 HSV,e/d 调曝光,a/q 调增益,ESC 退出");
 
     cv::Mat display_mask;                       // b 键打开二值图窗口
     bool show_mask = false;
@@ -707,7 +922,7 @@ int main(int argc, char *argv[]) {
         std::vector<LightBar> bars;
         std::vector<cv::Mat> masks;
         for (int color : {kRed, kBlue}) {
-            cv::Mat mask = BuildColorMask(hsv, color, show_mask);
+            cv::Mat mask = BuildColorMask(hsv, color);
             if (show_mask) masks.push_back(mask.clone());
             std::vector<LightBar> found = DetectLightBars(mask, value_channel, color);
             bars.insert(bars.end(), found.begin(), found.end());
@@ -770,6 +985,7 @@ int main(int argc, char *argv[]) {
             case 'd': AddExposureTime(device, -250.0); break;
             case 'a': AddGain(device, 0.1); break;
             case 'q': AddGain(device, -0.1); break;
+            case 'p': DumpBrightHue(hsv); break;         // 量测灯条的 H/S/V
             default: break;
         }
 
