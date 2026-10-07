@@ -214,14 +214,28 @@ bool AddExposureTime(GX_DEV_HANDLE device, double delta_us) {
         spdlog::error("Get ExposureTime: {}", GetErrorString(emStatus));
         return false;
     }
+    // 夹到相机自己报的上下限,不再硬编码 1~10000us:
+    // 写死的话相机支持更长曝光时按 e 到 10000 就上不去了
     double value = node.dCurValue + delta_us;
-    value = value < 1.0 ? 1.0 : (value > 10000.0 ? 10000.0 : value);
+    value = value < node.dMin ? node.dMin : (value > node.dMax ? node.dMax : value);
     emStatus = GXSetFloatValue(device, "ExposureTime", value);
     if (emStatus != GX_STATUS_SUCCESS) {
         spdlog::error("Set ExposureTime: {}", GetErrorString(emStatus));
         return false;
     }
-    spdlog::info("曝光时间 -> {} us", value);
+    // 回读:相机会把请求值吸附到步长 dInc、并夹住范围,
+    // 直接打印 value 是"我想设的值",不是真正生效的值
+    GX_FLOAT_VALUE after;
+    memset(&after, 0, sizeof(GX_FLOAT_VALUE));
+    if (GXGetFloatValue(device, "ExposureTime", &after) != GX_STATUS_SUCCESS) {
+        spdlog::info("曝光时间 -> {:.0f} us(回读失败,这是请求值)", value);
+        return true;
+    }
+    const char *lim = after.dCurValue <= node.dMin + 1e-9    ? "  [已到下限]"
+                      : after.dCurValue >= node.dMax - 1e-9  ? "  [已到上限]"
+                                                             : "";
+    spdlog::info("曝光时间 -> {:.0f} us  (范围 {:.0f}~{:.0f}, 步长 {:.0f}){}", after.dCurValue,
+                 node.dMin, node.dMax, node.dInc, lim);
     return true;
 }
 
@@ -234,13 +248,25 @@ bool AddGain(GX_DEV_HANDLE device, double delta_db) {
         return false;
     }
     double value = node.dCurValue + delta_db;
-    value = value < 0.0 ? 0.0 : (value > 32.0 ? 32.0 : value);
+    value = value < node.dMin ? node.dMin : (value > node.dMax ? node.dMax : value);
     emStatus = GXSetFloatValue(device, "Gain", value);
     if (emStatus != GX_STATUS_SUCCESS) {
         spdlog::error("Set Gain: {}", GetErrorString(emStatus));
         return false;
     }
-    spdlog::info("增益 -> {} dB", value);
+    // 同曝光:回读真实生效值。0.1dB 是浮点累加(0.1+0.1+0.1=0.30000000000000004),
+    // 打印累加结果既不准也难看
+    GX_FLOAT_VALUE after;
+    memset(&after, 0, sizeof(GX_FLOAT_VALUE));
+    if (GXGetFloatValue(device, "Gain", &after) != GX_STATUS_SUCCESS) {
+        spdlog::info("增益 -> {:.2f} dB(回读失败,这是请求值)", value);
+        return true;
+    }
+    const char *lim = after.dCurValue <= node.dMin + 1e-9    ? "  [已到下限]"
+                      : after.dCurValue >= node.dMax - 1e-9  ? "  [已到上限]"
+                                                             : "";
+    spdlog::info("增益 -> {:.2f} dB  (范围 {:.2f}~{:.2f}, 步长 {:.2f}){}", after.dCurValue,
+                 node.dMin, node.dMax, node.dInc, lim);
     return true;
 }
 
@@ -344,16 +370,171 @@ void SplitRectCorners(LightBar &bar) {
     bar.right_bottom = right_pts[1];
 }
 
-// 取灯条真正的外沿角点:左端最上/最下 + 右端最上/最下。
+// V 通道上的双线性采样(亚像素)。越界返回 -1,由调用者判断而不是取 0 —— 取 0
+// 会在画面边缘凭空造出一条"从亮到黑"的假边,把角点吸到图像边界上。
+float SampleValue(const cv::Mat &value_channel, cv::Point2f p) {
+    if (p.x < 0.0f || p.y < 0.0f || p.x > value_channel.cols - 1.001f ||
+        p.y > value_channel.rows - 1.001f) {
+        return -1.0f;
+    }
+    const int x0 = static_cast<int>(p.x), y0 = static_cast<int>(p.y);
+    const float fx = p.x - x0, fy = p.y - y0;
+    const uchar *r0 = value_channel.ptr<uchar>(y0);
+    const uchar *r1 = value_channel.ptr<uchar>(y0 + 1);
+    const float a = r0[x0] * (1.0f - fx) + r0[x0 + 1] * fx;
+    const float b = r1[x0] * (1.0f - fx) + r1[x0 + 1] * fx;
+    return a * (1.0f - fy) + b * fy;
+}
+
+// 从 origin 沿 dir 往外走,找灯条的边缘,返回它到 origin 的亚像素距离。
 //
-// 不能用 minAreaRect 的四个角点直接当答案。minAreaRect 求的是"最小外接矩形",
-// 灯条本身一旦被透视压成梯形(装甲板转 yaw 或离得近时),矩形的角就落在
-// 灯条轮廓外面 —— 合成梯形实测偏差 6.9px,而这里取轮廓极值点只有 0.1px。
-// 灯条接近矩形时两者持平(都 <1.5px),所以统一走这条路没有代价。
+// 判据用【亮度梯度最大处】,不是"亮度降到峰值的某个百分比"。原因实测:
+// 灯条核部过曝在 255 削顶,电平判据会被整体亮度拉走(±30% 亮度下漂 1.5px);
+// 而梯度的极值位置对任意单调缩放不变(漂 1.0px)。作为对照,现在用的
+// "颜色掩膜轮廓边界"在同样扰动下漂 4.8px,而且中间还有 3.6px 的不连续跳变
+// —— 那个跳变就是"蓝色角点标注跳一下"的来源。
+bool FindBarEdge(const cv::Mat &value_channel, cv::Point2f origin, cv::Point2f dir, float max_s,
+                 float *out_s) {
+    const float step = 0.5f;
+    const int n = static_cast<int>(max_s / step);
+    if (n < 4) return false;
+
+    std::vector<float> g(n + 1, 0.0f);
+    float gmax = 0.0f;
+    for (int i = 1; i <= n; ++i) {
+        const float s = i * step;
+        const float inner = SampleValue(value_channel, origin + dir * (s - step));
+        const float outer = SampleValue(value_channel, origin + dir * (s + step));
+        if (inner < 0.0f || outer < 0.0f) break;   // 走到画面外了,不再往外找
+        g[i] = std::abs(outer - inner);
+        gmax = std::max(gmax, g[i]);
+    }
+    if (gmax < 12.0f) return false;   // 整条扫描线上没有像样的边
+
+    // 取【第一个】够强的局部极大:往外最近的边才是灯条的边。再往外可能是
+    // 装甲板上的数字、别的灯条或高光,不能让它把角点拉走。
+    const float thresh = std::max(12.0f, 0.5f * gmax);
+    int bi = -1;
+    for (int i = 2; i + 1 <= n; ++i) {
+        if (g[i] >= thresh && g[i] >= g[i - 1] && g[i] >= g[i + 1]) {
+            bi = i;
+            break;
+        }
+    }
+    if (bi < 0) {   // 没有明显局部极大(边很平缓),退回全局最大
+        bi = 1;
+        for (int i = 2; i <= n; ++i) {
+            if (g[i] > g[bi]) bi = i;
+        }
+    }
+
+    // 三点抛物线取亚像素极值
+    float delta = 0.0f;
+    if (bi >= 2 && bi + 1 <= n) {
+        const float g0 = g[bi - 1], g1 = g[bi], g2 = g[bi + 1];
+        const float den = g0 - 2.0f * g1 + g2;
+        if (std::abs(den) > 1e-4f) delta = 0.5f * (g0 - g2) / den;
+        delta = std::max(-1.0f, std::min(1.0f, delta));
+    }
+    *out_s = bi * step + delta * step;
+    return true;
+}
+
+// 用亮度梯度定灯条的四个外沿角点。成功返回 true。
 //
-// 做法:先用 minAreaRect 定出长轴方向,再沿垂直于长轴的方向把轮廓点投影,
-// 两端各取极值附近 band 内的点,每端的最上/最下两点就是外沿角点。
-void ExtractOuterCorners(const std::vector<cv::Point> &contour, LightBar &bar) {
+// 为什么不用颜色掩膜的轮廓:蓝色掩膜的外沿是 S 阈值切出来的等值线,而这条
+// 等值线落在灯条自身的 S 渐变【里面】—— 实测它砍掉蓝色灯条自身 24%~36% 的
+// 像素(红只有 0.0%~0.1%,所以红一直很稳)。等值线一旦被白平衡/曝光推动,
+// 轮廓就从外沿开始被不均匀地啃掉,角点跟着走。亮度的梯度极值则是灯条的
+// 物理边缘,对整体缩放不变。
+//
+// 做法:轮廓只用来定"灯条在哪、朝哪"(长轴方向、中心)。然后在 V 通道上沿
+// 垂直方向做若干条扫描线,每条求出左右边缘点(亚像素),左右各最小二乘拟合
+// 一条直线,再外推到灯条两端得到四角。灯条的边在 3D 里是直线、透视投影后
+// 仍是直线,所以拟合是对的;而单点抖动会被整条边平均掉 —— 角点因此才稳。
+bool ExtractCornersByGradient(const cv::Mat &value_channel, LightBar &bar) {
+    // 长轴方向,取法与 BarDirection 一致(boxPoints 顺序与直觉相反,见那里的说明)
+    cv::Point2f along = (bar.rect.size.width >= bar.rect.size.height)
+                            ? bar.points[2] - bar.points[1]
+                            : bar.points[1] - bar.points[0];
+    const float alen = std::hypot(along.x, along.y);
+    if (alen < 1e-3f) return false;
+    const cv::Point2f u = along / alen;
+
+    // 横跨灯条的方向:统一取 x 分量为正的一侧当"右",左 = 反向。
+    // 这份约定必须和 ExtractOuterCornersByContour 一致 —— FindArmors 组装
+    // corners 时依赖 left_*/right_* 的左右关系。
+    cv::Point2f dir(-u.y, u.x);
+    if (dir.x < 0.0f) dir = -dir;
+
+    const float L = bar.length;
+    if (L < 8.0f) return false;
+
+    // 扫描线只覆盖中段 70%:两端有圆角、还可能被画面裁掉,梯度不可靠。
+    // 四角靠拟合线外推到 ±L/2,所以不需要扫到端头。
+    const int n_scan = std::max(5, std::min(15, static_cast<int>(L / 8.0f)));
+    const float t0 = -0.35f * L, t1 = 0.35f * L;
+    // 往外走多远:掩膜常比真实灯条胖(闭运算),给点余量
+    const float max_s = 1.2f * bar.width + 8.0f;
+
+    std::vector<cv::Point2f> pl, pr;
+    pl.reserve(n_scan);
+    pr.reserve(n_scan);
+    for (int i = 0; i < n_scan; ++i) {
+        const float t = t0 + (t1 - t0) * i / (n_scan - 1);
+        const cv::Point2f o = bar.center + u * t;
+        float s = 0.0f;
+        if (FindBarEdge(value_channel, o, -dir, max_s, &s)) pl.push_back(o - dir * s);
+        if (FindBarEdge(value_channel, o, dir, max_s, &s)) pr.push_back(o + dir * s);
+    }
+    if (pl.size() < 4 || pr.size() < 4) return false;   // 边点不够,交给兜底
+
+    // 最小二乘拟合每条边。点写成 center + u*t + dir*ss,拟合 ss = a*t + b。
+    auto fit = [&](const std::vector<cv::Point2f> &pts, float *a, float *b) {
+        double st = 0, ss = 0, stt = 0, sts = 0;
+        const double n = static_cast<double>(pts.size());
+        for (const cv::Point2f &p : pts) {
+            const cv::Point2f d = p - bar.center;
+            const double t = d.dot(u), s = d.dot(dir);
+            st += t;
+            ss += s;
+            stt += t * t;
+            sts += t * s;
+        }
+        const double den = n * stt - st * st;
+        if (std::abs(den) < 1e-6) return false;
+        *a = static_cast<float>((n * sts - st * ss) / den);
+        *b = static_cast<float>((ss - *a * st) / n);
+        return true;
+    };
+    float al = 0, bl = 0, ar = 0, br = 0;
+    if (!fit(pl, &al, &bl) || !fit(pr, &ar, &br)) return false;
+
+    // 外推到灯条两端
+    const float half = 0.5f * L;
+    auto at = [&](float a, float b, float t) {
+        return bar.center + u * t + dir * (a * t + b);
+    };
+    const cv::Point2f l0 = at(al, bl, -half), l1 = at(al, bl, half);
+    const cv::Point2f r0 = at(ar, br, -half), r1 = at(ar, br, half);
+
+    // 命名按图像上下(y 小的叫 top),与兜底实现一致
+    bar.left_top = l0.y <= l1.y ? l0 : l1;
+    bar.left_bottom = l0.y <= l1.y ? l1 : l0;
+    bar.right_top = r0.y <= r1.y ? r0 : r1;
+    bar.right_bottom = r0.y <= r1.y ? r1 : r0;
+    return true;
+}
+
+// 兜底:从颜色掩膜的轮廓上取外沿角点。左端最上/最下 + 右端最上/最下。
+//
+// 什么时候会走到这里:亮度边缘找不齐(梯度太弱、扫描线出画面、灯条太短)。
+// 正常帧走的是 ExtractCornersByGradient —— 那条路对曝光/白平衡更稳。
+// 保留这一条是为了不出现"新方法失败就整根灯条没角点"的断崖。
+//
+// 它的固有弱点(也是当初要换掉它的原因):轮廓是阈值等值线,灯条的边一旦
+// 被阈值从中啃过,取到的极值点就跟着阈值走。
+void ExtractOuterCornersByContour(const std::vector<cv::Point> &contour, LightBar &bar) {
     if (contour.size() < 2) {
         SplitRectCorners(bar);
         return;
@@ -527,8 +708,11 @@ std::vector<LightBar> DetectLightBars(const cv::Mat &mask, const cv::Mat &value_
             continue;
         }
 
-        // 6) 从轮廓上取真正的外沿角点(见 ExtractOuterCorners 的说明)
-        ExtractOuterCorners(contour, bar);
+        // 6) 角点:优先用亮度梯度定边(对曝光/白平衡的缩放不变,蓝色角点就靠它稳住),
+        //    找不齐时回落到轮廓极值法,避免出现"没有角点"的断崖
+        if (!ExtractCornersByGradient(value_channel, bar)) {
+            ExtractOuterCornersByContour(contour, bar);
+        }
 
         bar.color = color;
         bars.push_back(bar);
@@ -809,7 +993,21 @@ int main(int argc, char *argv[]) {
 
     GXSetEnumValueByString(device, "ExposureAuto", "Off");
     GXSetEnumValueByString(device, "GainAuto", "Off");
-    GXSetEnumValueByString(device, "BalanceWhiteAuto", "Continuous");
+    // 白平衡必须锁死,原来是 "Continuous" —— 相机每帧重解一次白平衡,
+    // 而它动的正是 B 通道增益。蓝色灯条的掩膜外沿恰恰是由 S 阈值决定的
+    // (实测:蓝色掩膜边界被 S 砍掉灯条自身 24%~36% 的像素;红色由 H 窗决定,
+    // 自己一个像素都不掉),而 S 正是 B 增益直接改变的量。于是蓝色灯条的轮廓
+    // 随白平衡"呼吸",角点跟着动。这条管道没有任何一处需要每帧重解白平衡。
+    // 先试 Once(开机解一次然后锁住,颜色不至于跑偏),不支持再退 Off。
+    if (GXSetEnumValueByString(device, "BalanceWhiteAuto", "Once") != GX_STATUS_SUCCESS) {
+        if (GXSetEnumValueByString(device, "BalanceWhiteAuto", "Off") != GX_STATUS_SUCCESS) {
+            spdlog::error("锁定白平衡失败,白平衡仍在自动状态,蓝色角点会漂");
+        } else {
+            spdlog::info("白平衡 -> Off(这台相机不支持 Once)");
+        }
+    } else {
+        spdlog::info("白平衡 -> Once(开机解一次后锁住)");
+    }
     GXSetEnumValueByString(device, "AcquisitionMode", "Continuous");
     GXSetEnumValueByString(device, "TriggerMode", "Off");
     GXSetEnumValue(device, "PixelFormat", GX_PIXEL_FORMAT_BAYER_RG8);
@@ -952,8 +1150,10 @@ int main(int argc, char *argv[]) {
                               armor.id, armor.score, armor.trape_ratio);
                 detail += buf;
             }
-            spdlog::info("识别帧率: {:.1f} FPS | 耗时: {:.2f} ms | 灯条: {} | 装甲板: {}{}",
-                         fps, cost_ms, bars.size(), armors.size(), detail);
+            // 用 debug 级:默认级别是 info,所以这行不再进控制台;
+            // 同样的数据窗口 HUD 上已经有了(DrawHud)。
+            spdlog::debug("识别帧率: {:.1f} FPS | 耗时: {:.2f} ms | 灯条: {} | 装甲板: {}{}",
+                          fps, cost_ms, bars.size(), armors.size(), detail);
         }
 
         // ---- 显示 ----
@@ -980,6 +1180,7 @@ int main(int argc, char *argv[]) {
             case 27: quit = true; break;                 // ESC
             case 'b': show_mask = !show_mask;
                 if (!show_mask) cv::destroyWindow("binary_mask");
+                spdlog::info("二值图窗口: {}", show_mask ? "显示" : "关闭");
                 break;
             case 'e': AddExposureTime(device, 250.0); break;
             case 'd': AddExposureTime(device, -250.0); break;
